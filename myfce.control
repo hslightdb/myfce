@@ -1,0 +1,6 @@
+# myfce extension
+comment = 'Functions and operators that emulate a subset of functions from the Mysql RDBMS'
+default_version = '1.0'
+module_pathname = '$libdir/myfce'
+relocatable = true
+trusted = true
