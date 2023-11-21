@@ -1,4 +1,6 @@
 -- locate
+set lightdb_syntax_compatible_type = mysql;
+set search_path to "$user",public,lt_catalog,mysql;
 select locate('1','a11111111111111',2);
  locate 
 --------
@@ -137,3 +139,1329 @@ select 5::longtext || 7::longtext;
 (1 row)
 
 drop table test_long_text;
+select year(203311); -- month is 33 ,so error. but in mysql it is NULL.
+ERROR:  date/time field value out of range: "203311"
+HINT:  Perhaps you need a different "datestyle" setting.
+CONTEXT:  PL/pgSQL function year(text) line 2 at RETURN
+select year(201211);  -- month is 12,year is 2020
+ year 
+------
+ 2020
+(1 row)
+
+select year(20331112);
+ year 
+------
+ 2033
+(1 row)
+
+select year('20331122');
+ year 
+------
+ 2033
+(1 row)
+
+select year('20331122'::date);
+ year 
+------
+ 2033
+(1 row)
+
+select year('20331122 12:00:12'::timestamptz);
+ year 
+------
+ 2033
+(1 row)
+
+select year('20331122 12:00:12'::timestamp);
+ year 
+------
+ 2033
+(1 row)
+
+select year('20331122 12:00:12');
+ year 
+------
+ 2033
+(1 row)
+
+select day(203311); -- month is 33 ,so error. but in mysql it is NULL.
+ERROR:  date/time field value out of range: "203311"
+HINT:  Perhaps you need a different "datestyle" setting.
+CONTEXT:  PL/pgSQL function day(text) line 2 at RETURN
+select day(201211);  -- month is 12,year is 2020
+ day 
+-----
+  11
+(1 row)
+
+select day(20331112);
+ day 
+-----
+  12
+(1 row)
+
+select day('20331122');
+ day 
+-----
+  22
+(1 row)
+
+select day('20331122'::date);
+ day 
+-----
+  22
+(1 row)
+
+select day('20331122 12:00:12'::timestamptz);
+ day 
+-----
+  22
+(1 row)
+
+select day('20331122 12:00:12'::timestamp);
+ day 
+-----
+  22
+(1 row)
+
+select day('20331122 12:00:12');
+ day 
+-----
+  22
+(1 row)
+
+create table test_date (a timestamp);
+insert into test_date values('2014-12-05 07:05:02');
+insert into test_date values('2014-12-05 17:05:02');
+select date_format(a,'%Y%y %c %h %f') from test_date;
+     date_format     
+---------------------
+ 201414 12 07 000000
+ 201414 12 05 000000
+(2 rows)
+
+select date_format(a,'%Y%y %c %h %f')  from test_date;
+     date_format     
+---------------------
+ 201414 12 07 000000
+ 201414 12 05 000000
+(2 rows)
+
+select date_format(a,'%Y%y %c %h %f')  from test_date;
+     date_format     
+---------------------
+ 201414 12 07 000000
+ 201414 12 05 000000
+(2 rows)
+
+select date_format(a,'%Y%y-%c %h %f')  from test_date;
+     date_format     
+---------------------
+ 201414-12 07 000000
+ 201414-12 05 000000
+(2 rows)
+
+select date_format(a,'%Y')  from test_date;
+ date_format 
+-------------
+ 2014
+ 2014
+(2 rows)
+
+select date_format(a,'%Y')   from test_date;
+ date_format 
+-------------
+ 2014
+ 2014
+(2 rows)
+
+select date_format(a,'%Y')   from test_date;
+ date_format 
+-------------
+ 2014
+ 2014
+(2 rows)
+
+select date_format(a,'%Y %y')   from test_date;
+ date_format 
+-------------
+ 2014 14
+ 2014 14
+(2 rows)
+
+select date_format(a,'%Y-%y%H')   from test_date;
+ date_format 
+-------------
+ 2014-1407
+ 2014-1417
+(2 rows)
+
+select date_format(a,'%Y-%y%H%h')   from test_date;
+ date_format 
+-------------
+ 2014-140707
+ 2014-141705
+(2 rows)
+
+select DATE_FORMAT(a,'%b %d %Y %h:%i %p')   from test_date;
+     date_format      
+----------------------
+ Dec 05 2014 07:05 AM
+ Dec 05 2014 05:05 PM
+(2 rows)
+
+select DATE_FORMAT(a,'%b %d %Y %h:%i %p')   from test_date;
+     date_format      
+----------------------
+ Dec 05 2014 07:05 AM
+ Dec 05 2014 05:05 PM
+(2 rows)
+
+select DATE_FORMAT(a,'%m-%d-%Y')   from test_date;
+ date_format 
+-------------
+ 12-05-2014
+ 12-05-2014
+(2 rows)
+
+select DATE_FORMAT(a,'%b %d %Y %h:%i %p')   from test_date;
+     date_format      
+----------------------
+ Dec 05 2014 07:05 AM
+ Dec 05 2014 05:05 PM
+(2 rows)
+
+select DATE_FORMAT(a,'%m-%d-%Y')   from test_date;
+ date_format 
+-------------
+ 12-05-2014
+ 12-05-2014
+(2 rows)
+
+select DATE_FORMAT(a,'%d %b %y')   from test_date;
+ date_format 
+-------------
+ 05 Dec 14
+ 05 Dec 14
+(2 rows)
+
+select DATE_FORMAT(a,'%d %b %Y %T.%f')   from test_date;
+         date_format         
+-----------------------------
+ 05 Dec 2014 07:05:02.000000
+ 05 Dec 2014 17:05:02.000000
+(2 rows)
+
+select DATE_FORMAT(a,'%d %b %Y %T:%F%')   from test_date;
+       date_format       
+-------------------------
+ 05 Dec 2014 07:05:02:F%
+ 05 Dec 2014 17:05:02:F%
+(2 rows)
+
+select DATE_FORMAT(a,'%d %b %Y %T:%f%')   from test_date;
+         date_format          
+------------------------------
+ 05 Dec 2014 07:05:02:000000%
+ 05 Dec 2014 17:05:02:000000%
+(2 rows)
+
+select DATE_FORMAT(a,'%%d %b %Y %T:%f%')   from test_date;
+         date_format          
+------------------------------
+ %d Dec 2014 07:05:02:000000%
+ %d Dec 2014 17:05:02:000000%
+(2 rows)
+
+select DATE_FORMAT(a,'%7d %b %Y %T:%f%')   from test_date;
+         date_format          
+------------------------------
+ 7d Dec 2014 07:05:02:000000%
+ 7d Dec 2014 17:05:02:000000%
+(2 rows)
+
+select date_format(a,'%a,%b,%c,%D,%d,%e,%f,%H,%h,%I,%i,%j,%k,%l,%M,%m,%p,%r,%S,%s,%T,%U,%u,%V,%v,%W,%w,%X,%x,%Y,%y,%%') from test_date;
+                                                        date_format                                                        
+---------------------------------------------------------------------------------------------------------------------------
+ Fri,Dec,12,5th,05,5,000000,07,07,07,05,339,7,7,December,12,AM,07:05:02 AM,02,02,07:05:02,U,49,V,v,Friday,w,X,x,2014,14,%
+ Fri,Dec,12,5th,05,5,000000,17,05,05,05,339,17,5,December,12,PM,05:05:02 PM,02,02,17:05:02,U,49,V,v,Friday,w,X,x,2014,14,%
+(2 rows)
+
+select date_format(a,'%k,%l') from test_date;
+ date_format 
+-------------
+ 7,7
+ 17,5
+(2 rows)
+
+select date_format(a,'%Y-%u') from test_date;
+ date_format 
+-------------
+ 2014-49
+ 2014-49
+(2 rows)
+
+select date_format(20140102,'%Y-%m-%d %h:%m:%s');
+     date_format     
+---------------------
+ 2014-01-02 12:01:00
+(1 row)
+
+select date_format(20140102::text,'%Y-%m-%d %h:%m:%s');
+     date_format     
+---------------------
+ 2014-01-02 12:01:00
+(1 row)
+
+-- In mysql is success,
+select date_format(201201,'%Y-%m-%d %h:%m:%s');
+     date_format     
+---------------------
+ 2020-12-01 12:12:00
+(1 row)
+
+-- In mysql it is NULL,when date is error.
+select date_format(201401,'%Y-%m-%d %h:%m:%s');
+ERROR:  date/time field value out of range: "201401"
+HINT:  Perhaps you need a different "datestyle" setting.
+CONTEXT:  PL/pgSQL function date_format(text,text) line 2 at RETURN
+SELECT UNCOMPRESS(COMPRESS('any string'));
+ uncompress 
+------------
+ any string
+(1 row)
+
+-- SELECT UNCOMPRESS('any string');  -- should  null
+SELECT UNCOMPRESS(COMPRESS(''));
+ uncompress 
+------------
+ 
+(1 row)
+
+select str_to_date('25,5,2022','%d,%m,%Y');
+       str_to_date        
+--------------------------
+ Wed May 25 00:00:00 2022
+(1 row)
+
+select str_to_date('2022-05-26 11:30:00','%Y-%m-%d');
+ERROR:  trailing characters remain in input string after datetime format
+select str_to_date('August,5,2022', '%M,%e,%Y');
+       str_to_date        
+--------------------------
+ Fri Aug 05 00:00:00 2022
+(1 row)
+
+select str_to_date('August 10 2022', '%M %d %Y');
+       str_to_date        
+--------------------------
+ Wed Aug 10 00:00:00 2022
+(1 row)
+
+select str_to_date('Monday, August 14, 2022', '%W, %M %e, %Y');
+       str_to_date        
+--------------------------
+ Sun Aug 14 00:00:00 2022
+(1 row)
+
+select str_to_date('20220525 1130','%Y%m%d %h%i');
+       str_to_date        
+--------------------------
+ Wed May 25 11:30:00 2022
+(1 row)
+
+select str_to_date('2022-05-26 11:30:00','%Y-%m-%d %H:%i:%s');
+       str_to_date        
+--------------------------
+ Thu May 26 11:30:00 2022
+(1 row)
+
+select str_to_date('2022,5,27 10,40,10', '%Y,%m,%d %h,%i,%s');
+       str_to_date        
+--------------------------
+ Fri May 27 10:40:10 2022
+(1 row)
+
+-- The following test cases are incompatible with MySQL
+select str_to_date('2022','%Y');
+       str_to_date        
+--------------------------
+ Sat Jan 01 00:00:00 2022
+(1 row)
+
+select str_to_date('11','%h');
+         str_to_date         
+-----------------------------
+ Sat Jan 01 11:00:00 0001 BC
+(1 row)
+
+select str_to_date('1130','%h%i');
+         str_to_date         
+-----------------------------
+ Sat Jan 01 11:30:00 0001 BC
+(1 row)
+
+select str_to_date('113005','%h%i%s');
+         str_to_date         
+-----------------------------
+ Sat Jan 01 11:30:05 0001 BC
+(1 row)
+
+select str_to_date('August,5,2017', '%M %e %Y');
+ERROR:  unmatched format character " "
+select str_to_date('Monday, August 14, 2017', '%W %M %e %Y');
+ERROR:  unmatched format character " "
+ 
+drop table test_date;
+select from_unixtime('1659067690');
+      from_unixtime       
+--------------------------
+ Thu Jul 28 21:08:10 2022
+(1 row)
+
+select from_unixtime('1659067690'::text);
+      from_unixtime       
+--------------------------
+ Thu Jul 28 21:08:10 2022
+(1 row)
+
+select from_unixtime(1659067690);
+      from_unixtime       
+--------------------------
+ Thu Jul 28 21:08:10 2022
+(1 row)
+
+select from_unixtime('1659067690','%Y-%m-%d %T');
+    from_unixtime    
+---------------------
+ 2022-07-28 21:08:10
+(1 row)
+
+select from_unixtime('1659067690'::text,'%Y-%m-%d %T');
+    from_unixtime    
+---------------------
+ 2022-07-28 21:08:10
+(1 row)
+
+select from_unixtime(1659067690,'%Y-%m-%d %T');
+    from_unixtime    
+---------------------
+ 2022-07-28 21:08:10
+(1 row)
+
+select from_unixtime('1659067690','%Y');
+ from_unixtime 
+---------------
+ 2022
+(1 row)
+
+select from_unixtime('1659067690'::text,'%Y');
+ from_unixtime 
+---------------
+ 2022
+(1 row)
+
+select from_unixtime(1659067690,'%Y');
+ from_unixtime 
+---------------
+ 2022
+(1 row)
+
+select unix_timestamp() = extract(epoch from statement_timestamp())::int8;
+ ?column? 
+----------
+ t
+(1 row)
+
+select unix_timestamp('20220801 14:46:10');
+ unix_timestamp 
+----------------
+     1659390370
+(1 row)
+
+select unix_timestamp('20220801 14:46:10'::timestamp);
+ unix_timestamp 
+----------------
+     1659390370
+(1 row)
+
+select unix_timestamp('20220801 14:46:10'::timestamptz);
+ unix_timestamp 
+----------------
+     1659390370
+(1 row)
+
+select unix_timestamp('20220801'::date);
+ unix_timestamp 
+----------------
+     1659337200
+(1 row)
+
+select unix_timestamp('20220801');
+ unix_timestamp 
+----------------
+     1659337200
+(1 row)
+
+select ifnull('',null);
+ ifnull 
+--------
+ 
+(1 row)
+
+select ifnull(NULL,'is null');
+ ifnull  
+---------
+ is null
+(1 row)
+
+select ifnull('2'::text,1);
+ ifnull 
+--------
+ 2
+(1 row)
+
+select ifnull(2,'1'::text);
+ ifnull 
+--------
+ 2
+(1 row)
+
+select date_sub('20220801 14:46:10',interval 1 day);
+  date_sub  
+------------
+ 07-31-2022
+(1 row)
+
+select date_sub('20220801'::date,interval 1 day);
+  date_sub  
+------------
+ 07-31-2022
+(1 row)
+
+select date_sub('20220801 14:46:10'::timestamptz,interval 1 day);
+  date_sub  
+------------
+ 07-31-2022
+(1 row)
+
+select date_sub('20220801 14:46:10'::timestamp,interval 1 day);
+  date_sub  
+------------
+ 07-31-2022
+(1 row)
+
+select date_add('20220801 14:46:10',interval 1 day);
+  date_add  
+------------
+ 08-02-2022
+(1 row)
+
+select date_add('20220801'::date,interval 1 day);
+  date_add  
+------------
+ 08-02-2022
+(1 row)
+
+select date_add('20220801 14:46:10'::timestamptz,interval 1 day);
+  date_add  
+------------
+ 08-02-2022
+(1 row)
+
+select date_add('20220801 14:46:10'::timestamp,interval 1 day);
+  date_add  
+------------
+ 08-02-2022
+(1 row)
+
+select cast('5' as  signed);
+ signed 
+--------
+      5
+(1 row)
+
+select dayofweek('20220801 14:46:10'::timestamp);
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('20220801 14:46:10'::timestamptz);
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('20220801 14:46:10'::date);
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('20220801 14:46:10');
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('20220801 14:46:10'::text);
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek(20220801);
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('2022-08-01 14:46:10');
+ dayofweek 
+-----------
+         2
+(1 row)
+
+select dayofweek('2022-08-02 14:46:10');
+ dayofweek 
+-----------
+         3
+(1 row)
+
+select dayofweek('2022-08-03 14:46:10');
+ dayofweek 
+-----------
+         4
+(1 row)
+
+select dayofweek('2022-08-04 14:46:10');
+ dayofweek 
+-----------
+         5
+(1 row)
+
+select dayofweek('2022-08-05 14:46:10');
+ dayofweek 
+-----------
+         6
+(1 row)
+
+select dayofweek('2022-08-06 14:46:10');
+ dayofweek 
+-----------
+         7
+(1 row)
+
+select dayofweek('2022-08-07 14:46:10');
+ dayofweek 
+-----------
+         1
+(1 row)
+
+select weekofyear('20220801 14:46:10'::timestamp);
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear('20220801 14:46:10'::timestamptz);
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear('20220801 14:46:10'::date);
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear('20220801 14:46:10');
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear('20220801 14:46:10'::text);
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear(20220801);
+ weekofyear 
+------------
+         31
+(1 row)
+
+select weekofyear('2022-01-03');
+ weekofyear 
+------------
+          1
+(1 row)
+
+select field('Bb', 'Aa', 'Bb', 'Cc', 'Dd', 'Ff');
+ field 
+-------
+     2
+(1 row)
+
+select field('Gg', 'Aa', 'Bb', 'Cc', 'Dd', 'Ff');
+ field 
+-------
+     0
+(1 row)
+
+select field(123, 1.23, 12.3, 123, 1234, 0.12);
+ field 
+-------
+     3
+(1 row)
+
+select field(123, 1.23, 12.3,  23, 1234, 0.12);
+ field 
+-------
+     0
+(1 row)
+
+select elt(  2, 'Aa', 'Bb', 'Cc', 'Dd', 'Ff');
+ elt 
+-----
+ Bb
+(1 row)
+
+select elt(1.2, 'Aa', 'Bb', 'Cc', 'Dd', 'Ff');
+ elt 
+-----
+ Aa
+(1 row)
+
+select coalesce(elt(  0, 'Aa', 'Bb', 'Cc', 'Dd', 'Ff'), 'NULL');
+ coalesce 
+----------
+ NULL
+(1 row)
+
+select coalesce(elt( 10, 'Aa', 'Bb', 'Cc', 'Dd', 'Ff'), 'NULL');
+ coalesce 
+----------
+ NULL
+(1 row)
+
+select strcmp('text', 'text2');
+ strcmp 
+--------
+     -1
+(1 row)
+
+select strcmp('text2', 'text');
+ strcmp 
+--------
+      1
+(1 row)
+
+select strcmp('text', 'text');
+ strcmp 
+--------
+      0
+(1 row)
+
+select log10(2);
+       log10        
+--------------------
+ 0.3010299956639812
+(1 row)
+
+select log10(100);
+ log10 
+-------
+     2
+(1 row)
+
+select log10(-100) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select insert('Quadratic', 3, 4, 'What');
+  insert   
+-----------
+ QuWhattic
+(1 row)
+
+select insert('Quadratic', -1, 4, 'What');
+  insert   
+-----------
+ Quadratic
+(1 row)
+
+select insert('Quadratic', 0, 2, 'What');
+  insert   
+-----------
+ Quadratic
+(1 row)
+
+select insert('Quadratic', 1, 2, 'What');
+   insert    
+-------------
+ Whatadratic
+(1 row)
+
+select insert('Quadratic', 9, 12, 'What');
+    insert    
+--------------
+ QuadratiWhat
+(1 row)
+
+select insert('Quadratic', 3, 100, 'What');
+ insert 
+--------
+ QuWhat
+(1 row)
+
+select coalesce(insert('Quadratic', 3, 100, null), 'NULL');
+ coalesce 
+----------
+ NULL
+(1 row)
+
+select coalesce(insert('Quadratic', null, 100, 'What'), 'NULL');
+ coalesce 
+----------
+ NULL
+(1 row)
+
+select lcase('QuadRatic');
+   lcase   
+-----------
+ quadratic
+(1 row)
+
+select ucase('QuadRatic');
+   ucase   
+-----------
+ QUADRATIC
+(1 row)
+
+select concat('|', space(11), '|');
+    concat     
+---------------
+ |           |
+(1 row)
+
+select concat('|', space(-11), '|');
+ concat 
+--------
+ ||
+(1 row)
+
+select concat('|', space(0), '|');
+ concat 
+--------
+ ||
+(1 row)
+
+select mid('Hongye', 2, 4);
+ mid  
+------
+ ongy
+(1 row)
+
+select mid('Hongye', -2, 4);
+ mid 
+-----
+ ye
+(1 row)
+
+select coalesce(mid('Hongye', 12, 4), 'NULL');
+ coalesce 
+----------
+ 
+(1 row)
+
+select coalesce(mid('Hongye', 2, -4), 'NULL');
+ coalesce 
+----------
+ 
+(1 row)
+
+select coalesce(mid('Hongye', 0, 4), 'NULL');
+ coalesce 
+----------
+ 
+(1 row)
+
+select coalesce(mid('Hongye', 2, 0), 'NULL');
+ coalesce 
+----------
+ 
+(1 row)
+
+select to_days('1111-11-11');
+ to_days 
+---------
+  406098
+(1 row)
+
+select to_days('1111-11-11'::timestamp);
+ to_days 
+---------
+  406098
+(1 row)
+
+select to_days('1111-11-11'::timestamptz);
+ to_days 
+---------
+  406098
+(1 row)
+
+select to_days(to_date('2020-02-02', 'YYYY-MM-DD'));
+ to_days 
+---------
+  737822
+(1 row)
+
+select to_days('2020-02-02', 'YYYY-MM-DD');
+ to_days 
+---------
+  737822
+(1 row)
+
+select to_days(12340501);
+ to_days 
+---------
+  450830
+(1 row)
+
+select to_days(950501);
+ to_days 
+---------
+  728779
+(1 row)
+
+select to_days(090501);
+ to_days 
+---------
+  733893
+(1 row)
+
+select to_days(50501);
+ to_days 
+---------
+  732432
+(1 row)
+
+select to_days(1101);
+ to_days 
+---------
+  730790
+(1 row)
+
+select to_days(501);
+ to_days 
+---------
+  730606
+(1 row)
+
+select to_days(101);
+ to_days 
+---------
+  730485
+(1 row)
+
+select to_days(100) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select to_days(51) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select to_days(1) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select to_days(950551) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select to_days(51501) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select to_seconds('2009-11-29'::timestamp);
+ to_seconds  
+-------------
+ 63426672000
+(1 row)
+
+select to_seconds('2009-11-29 13:43:32'::timestamptz) - to_seconds('1999-11-29 11:22:33'::timestamptz);
+ ?column?  
+-----------
+ 315627659
+(1 row)
+
+select timediff('2000-01-01 00:00:00', '2000-01-01 00:00:00.000001');
+      timediff       
+---------------------
+ @ 0.000001 secs ago
+(1 row)
+
+select timediff('2008-12-31 23:59:59.000001', '2008-12-30 01:01:01.000002');
+                timediff                 
+-----------------------------------------
+ @ 1 day 22 hours 58 mins 57.999999 secs
+(1 row)
+
+select time_to_sec('22:23:00');
+ time_to_sec 
+-------------
+       80580
+(1 row)
+
+select time_to_sec('00:39:38');
+ time_to_sec 
+-------------
+        2378
+(1 row)
+
+select sec_to_time(80580);
+    sec_to_time     
+--------------------
+ @ 22 hours 23 mins
+(1 row)
+
+select sec_to_time(2378);
+    sec_to_time    
+-------------------
+ @ 39 mins 38 secs
+(1 row)
+
+select sec_to_time(805801);
+        sec_to_time        
+---------------------------
+ @ 223 hours 50 mins 1 sec
+(1 row)
+
+select sec_to_time(8058011);
+         sec_to_time          
+------------------------------
+ @ 2238 hours 20 mins 11 secs
+(1 row)
+
+select to_base64('abc');
+ to_base64 
+-----------
+ YWJj
+(1 row)
+
+select to_base64('Hongye');
+ to_base64 
+-----------
+ SG9uZ3ll
+(1 row)
+
+select from_base64('YWJj');
+ from_base64 
+-------------
+ abc
+(1 row)
+
+select from_base64('SG9uZ3ll');
+ from_base64 
+-------------
+ Hongye
+(1 row)
+
+select log2(64);
+        log2        
+--------------------
+ 6.0000000000000000
+(1 row)
+
+select log2(123);
+        log2        
+--------------------
+ 6.9425145053392399
+(1 row)
+
+select log2(0) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select log2(-12) is null;
+ ?column? 
+----------
+ t
+(1 row)
+
+select uuid_to_bin('0768a47d-d355-372b-4926-ee668b6cb443'::uuid)::text;
+            uuid_to_bin             
+------------------------------------
+ \x0768a47dd355372b4926ee668b6cb443
+(1 row)
+
+select bin_to_uuid('\x0768a47dd355372b4926ee668b6cb443');
+             bin_to_uuid              
+--------------------------------------
+ 0768a47d-d355-372b-4926-ee668b6cb443
+(1 row)
+
+select timestampdiff ('MICROSECOND', '1911-11-11 11:23:45.123456'::timestamp, '2021-12-12 12:12:12.654321'::timestamp);
+  timestampdiff   
+------------------
+ 3474060507530865
+(1 row)
+
+select timestampdiff ('SECOND', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+    3474060507
+(1 row)
+
+select timestampdiff ('MINUTE', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+      57901008
+(1 row)
+
+select timestampdiff ('HOUR', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+        965016
+(1 row)
+
+select timestampdiff ('DAY', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+         40209
+(1 row)
+
+select timestampdiff ('WEEK', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+          5744
+(1 row)
+
+select timestampdiff ('MONTH', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+          1321
+(1 row)
+
+select timestampdiff ('QUARTER', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+           440
+(1 row)
+
+select timestampdiff ('YEAR', '1911-11-11 11:23:45'::timestamp, '2021-12-12 12:12:12'::timestamp);
+ timestampdiff 
+---------------
+           110
+(1 row)
+
+select timestampdiff ('day', '2021-12-12 12:12:12'::timestamp, '1911-11-11 11:23:45'::timestamp);
+ timestampdiff 
+---------------
+        -40209
+(1 row)
+
+select timestampdiff ('year','2002-01-01'::timestamp, '2001-01-01'::timestamp);
+ timestampdiff 
+---------------
+            -1
+(1 row)
+
+select timestampdiff ('year','2002-01-01'::timestamp, '2001-01-02'::timestamp);
+ timestampdiff 
+---------------
+             0
+(1 row)
+
+select isnull(0)::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select isnull(1)::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select isnull(11)::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select isnull('')::text;
+ isnull 
+--------
+ false
+(1 row)
+
+--select isnull('''')::text;
+select isnull('x')::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select isnull(null)::text;
+ isnull 
+--------
+ true
+(1 row)
+
+select isnull(now())::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select isnull('2012-12-12 12:34:56'::timestamp)::text;
+ isnull 
+--------
+ false
+(1 row)
+
+select conv('123456', 10, 16);
+ conv  
+-------
+ 1E240
+(1 row)
+
+select conv('123456', 10, 2);
+       conv        
+-------------------
+ 11110001001000000
+(1 row)
+
+select conv('1E240', 16, 10);
+  conv  
+--------
+ 123456
+(1 row)
+
+select conv('1E240', 16, 2);
+       conv        
+-------------------
+ 11110001001000000
+(1 row)
+
+select conv('11110001001000000', 2, 10);
+  conv  
+--------
+ 123456
+(1 row)
+
+select conv('11110001001000000', 2, 16);
+ conv  
+-------
+ 1E240
+(1 row)
+
+select conv('a',16, 2);
+ conv 
+------
+ 1010
+(1 row)
+
+select conv('6e',16, 10);
+ conv 
+------
+ 110
+(1 row)
+
+select rand() > 0.0;
+ ?column? 
+----------
+ t
+(1 row)
+
+select rand(123) > 0.0;
+ ?column? 
+----------
+ t
+(1 row)
+
+select if(1=1, 'yes'::bool, 'no'::bool);
+ if 
+----
+ t
+(1 row)
+
+select if(1=0, '1212-12-12'::timestamp, '1111-11-11'::timestamp);
+              if              
+------------------------------
+ Sat Nov 11 00:00:00 1111 PST
+(1 row)
+
+select instr('abc123defnh', 'def');
+ instr 
+-------
+     7
+(1 row)
+
+select instr('abc123defnhdefabdef', 'def');
+ instr 
+-------
+     7
+(1 row)
+
+select instr('abc123defnhdefabdef', 'phm');
+ instr 
+-------
+     0
+(1 row)
+
+select instr('abc123defnhdefabdef', 'ab');
+ instr 
+-------
+     1
+(1 row)
+
+select instr('abc123defnhdefa你好aa', '你好');
+ instr 
+-------
+    16
+(1 row)
+
+select instr('abc123defnhdefa你好aa', '哈哈');
+ instr 
+-------
+     0
+(1 row)
+
+select instr('abc你好aa哈哈', '哈哈');
+ instr 
+-------
+     8
+(1 row)
+
+select instr('abc你好aa哈哈!@#$%^&*()_+-=[]{};,.', '&*');
+ instr 
+-------
+    16
+(1 row)
+
+set search_path to default;
+set lightdb_syntax_compatible_type = off;

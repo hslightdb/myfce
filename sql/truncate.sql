@@ -1,3 +1,6 @@
+set lightdb_syntax_compatible_type = mysql;
+set search_path to "$user",public,lt_catalog,mysql;
+
 create table test_truncate_tb1 (sid smallint,id int,lid int8,num numeric,f4 float,f8 double precision);
 insert into test_truncate_tb1 values(1,2,12,1.2,1.3,1.4);
 
@@ -47,3 +50,6 @@ SELECT TRUNCATE(0, 5);
 SELECT TRUNCATE(0, -5);
 SELECT TRUNCATE(0, 0);
 SELECT TRUNCATE(0.0005, 2);
+
+set search_path to default;
+set lightdb_syntax_compatible_type = off;

@@ -3,7 +3,7 @@
 MODULES = myfce
 
 EXTENSION = myfce
-DATA = myfce--1.0.sql
+DATA = myfce--1.0.sql myfce--1.0--1.1.sql
 PGFILEDESC = "myfce - For compatibility with Mysql"
 
 REGRESS = find_in_set truncate group_concat if
