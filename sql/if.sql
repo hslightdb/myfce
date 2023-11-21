@@ -1,3 +1,5 @@
+set lightdb_syntax_compatible_type = mysql;
+set search_path to "$user",public,lt_catalog,mysql;
 
 select if(false,1.7,1.5);
 select if(null,1.7,1.5);
@@ -1978,3 +1980,6 @@ select if(1,1,3);
 select if(0,1,3);  
 SELECT IF(find_in_set('a','a,b,c'),'no','yes'); 
 select if(32767::smallint,3.3::decimal); 
+
+set search_path to default;
+set lightdb_syntax_compatible_type = off;

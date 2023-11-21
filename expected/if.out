@@ -1,3 +1,5 @@
+set lightdb_syntax_compatible_type = mysql;
+set search_path to "$user",public,lt_catalog,mysql;
 select if(false,1.7,1.5);
  if  
 -----
@@ -6256,3 +6258,5 @@ ERROR:  function if(smallint, numeric) does not exist
 LINE 1: select if(32767::smallint,3.3::decimal);
                ^
 HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+set search_path to default;
+set lightdb_syntax_compatible_type = off;

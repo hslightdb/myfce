@@ -1,6 +1,8 @@
 ----------------------------------
 -------test find_in_set-----------
 ----------------------------------
+set lightdb_syntax_compatible_type = mysql;
+set search_path to "$user",public,lt_catalog,mysql;
 
 select find_in_set('a', 'a,b,c,d');
 select find_in_set(' a', 'a,b,c,d');
@@ -238,3 +240,5 @@ select find_in_set('cd','a,b,CD,f');
 select find_in_set('0a','a,b,cd,0A');
 select find_in_set('1A','a,b,cd,1a');
 
+set search_path to default;
+set lightdb_syntax_compatible_type = off;
