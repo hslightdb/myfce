@@ -1,0 +1,467 @@
+-- test mysql divide compatible
+\c test_mysql_myfce;
+show search_path;
+                        search_path                        
+-----------------------------------------------------------
+ "$user", public, "$lt_syntax_compatible_type", lt_catalog
+(1 row)
+
+-- use explicit mysql schema
+select 2 operator(mysql./) 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 4 operator(mysql./) 4;
+        ?column?        
+------------------------
+ 1.00000000000000000000
+(1 row)
+
+select 1 operator(mysql./) 3;
+        ?column?        
+------------------------
+ 0.33333333333333333333
+(1 row)
+
+select 2.0 operator(mysql./) 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2 operator(mysql./) 4.0;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select '2' operator(mysql./) 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select '22' operator(mysql./) 4;
+      ?column?      
+--------------------
+ 5.5000000000000000
+(1 row)
+
+select '22' operator(mysql./) '3';
+      ?column?      
+--------------------
+ 7.3333333333333333
+(1 row)
+
+-- test normal case
+select 2 / 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 1 / 4;
+        ?column?        
+------------------------
+ 0.25000000000000000000
+(1 row)
+
+select 2 / 2;
+        ?column?        
+------------------------
+ 1.00000000000000000000
+(1 row)
+
+select 10 / 3;
+      ?column?      
+--------------------
+ 3.3333333333333333
+(1 row)
+
+select 2*20 / 2;
+      ?column?       
+---------------------
+ 20.0000000000000000
+(1 row)
+
+select 2^10 / 3;    -- mysql not support ^, pg support
+     ?column?      
+-------------------
+ 341.3333333333333
+(1 row)
+
+select 5! / 2;      -- mysql not support !, pg support
+      ?column?       
+---------------------
+ 60.0000000000000000
+(1 row)
+
+select abs(-9) / 2;
+      ?column?      
+--------------------
+ 4.5000000000000000
+(1 row)
+
+select power(2,32) / 2;
+  ?column?  
+------------
+ 2147483648
+(1 row)
+
+select power(2,32) + 1 / 2;
+   ?column?   
+--------------
+ 4294967296.5
+(1 row)
+
+select (power(2,32) + 1) / 2;
+   ?column?   
+--------------
+ 2147483648.5
+(1 row)
+
+select (power(2,64) + 1) / 2;
+       ?column?        
+-----------------------
+ 9.223372036854776e+18
+(1 row)
+
+select -1 / -2;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select -2 / -3;
+        ?column?        
+------------------------
+ 0.66666666666666666667
+(1 row)
+
+select -2 / 4;
+        ?column?         
+-------------------------
+ -0.50000000000000000000
+(1 row)
+
+select 2 / -3;
+        ?column?         
+-------------------------
+ -0.66666666666666666667
+(1 row)
+
+select abs(-9) / -2;
+      ?column?       
+---------------------
+ -4.5000000000000000
+(1 row)
+
+select 2::int2 / 4::int2;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int2 / 4::int4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int2 / 4::int8;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int4 / 4::int2;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int4 / 4::int4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int4 / 4::int8;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int8 / 4::int2;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int8 / 4::int4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2::int8 / 4::int8;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+-- test range
+select 10000000000::int2 / 2;
+ERROR:  smallint out of range
+select 2 / 10000000000::int2;
+ERROR:  smallint out of range
+select (2^16)::int2 / 2;
+ERROR:  smallint out of range
+select (2^15 -1)::int2 / 2;
+      ?column?      
+--------------------
+ 16383.500000000000
+(1 row)
+
+select (-1 * 2^15)::int2 / 2;
+      ?column?       
+---------------------
+ -16384.000000000000
+(1 row)
+
+select (-1 * 2^15 - 1)::int2 / 2;
+ERROR:  smallint out of range
+select (2^31 - 1)::int4 / 2;
+      ?column?       
+---------------------
+ 1073741823.50000000
+(1 row)
+
+select (2^31)::int4 / 4;
+ERROR:  integer out of range
+select (-1 * 2^31)::int4 / 2;
+       ?column?       
+----------------------
+ -1073741824.00000000
+(1 row)
+
+select (-1 * 2^31 - 1)::int4 / 2;
+ERROR:  integer out of range
+select 9223372036854775807::int8 / 2;           -- int8 range (-9223372036854775808, +9223372036854775807]
+      ?column?       
+---------------------
+ 4611686018427387904
+(1 row)
+
+select (9223372036854775807 + 1)::int8 / 2;
+ERROR:  bigint out of range
+select (-1 * 2^63)::int8 / 2;
+       ?column?       
+----------------------
+ -4611686018427387904
+(1 row)
+
+select (-1 * 2^63 -1)::int8 / 2;
+       ?column?       
+----------------------
+ -4611686018427387904
+(1 row)
+
+select -9223372036854775808::int8 / 2;
+ERROR:  bigint out of range
+select (-9223372036854775808 + 1)::int8 / 2;
+       ?column?       
+----------------------
+ -4611686018427387904
+(1 row)
+
+select 2 / (2^16)::int2;
+ERROR:  smallint out of range
+select 2 / (2^31)::int4;
+ERROR:  integer out of range
+select 2 / (9223372036854775807 + 1);
+ERROR:  bigint out of range
+-- test float
+select 2.0 / 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2.0 / 4.0;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2 / 4.0;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 1.0 / 3;
+        ?column?        
+------------------------
+ 0.33333333333333333333
+(1 row)
+
+-- test char digit
+select '2' / 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select 2 / '4';
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select '2' / '4';
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+select '2.2' / '4.2';
+        ?column?        
+------------------------
+ 0.52380952380952380952
+(1 row)
+
+select '2.0' / 2;
+        ?column?        
+------------------------
+ 1.00000000000000000000
+(1 row)
+
+select 22 / '2.2';
+      ?column?       
+---------------------
+ 10.0000000000000000
+(1 row)
+
+-- test div null
+select 2 / null;
+ ?column? 
+----------
+         
+(1 row)
+
+select null / 2;
+ ?column? 
+----------
+         
+(1 row)
+
+select null / null;
+ ?column? 
+----------
+         
+(1 row)
+
+select 2.0 / null;
+ ?column? 
+----------
+         
+(1 row)
+
+select null / 2.0;
+ ?column? 
+----------
+         
+(1 row)
+
+select '2' / null;
+ ?column? 
+----------
+         
+(1 row)
+
+select '2.2' / null;
+ ?column? 
+----------
+         
+(1 row)
+
+select null / '2.2';
+ ?column? 
+----------
+         
+(1 row)
+
+select null / '2';
+ ?column? 
+----------
+         
+(1 row)
+
+-- search path
+set search_path to public;
+show search_path;
+ search_path 
+-------------
+ public
+(1 row)
+
+select 10 / 2;
+      ?column?      
+--------------------
+ 5.0000000000000000
+(1 row)
+
+select 8 / 15;
+        ?column?        
+------------------------
+ 0.53333333333333333333
+(1 row)
+
+select 1000 / 2000;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+set search_path to mysql;
+select 3 / 5;
+        ?column?        
+------------------------
+ 0.60000000000000000000
+(1 row)
+
+select 8 / 3;
+      ?column?      
+--------------------
+ 2.6666666666666667
+(1 row)
+
+select 2 / 4;
+        ?column?        
+------------------------
+ 0.50000000000000000000
+(1 row)
+
+set search_path to default;
+-- test table
+create table test_divide(a int, b int, c decimal);
+insert into test_divide values(1, 1, 2 / 4);
+insert into test_divide values(2, 4, 3 / 2);
+select * from test_divide;
+ a | b |           c            
+---+---+------------------------
+ 1 | 1 | 0.50000000000000000000
+ 2 | 4 |     1.5000000000000000
+(2 rows)
+
+select a, b, a / b from test_divide;
+ a | b |        ?column?        
+---+---+------------------------
+ 1 | 1 | 1.00000000000000000000
+ 2 | 4 | 0.50000000000000000000
+(2 rows)
+
+set search_path to default;

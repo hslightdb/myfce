@@ -1,4 +1,4 @@
-set lightdb_syntax_compatible_type = mysql;
+\c test_mysql_myfce;
 set search_path to "$user",public,lt_catalog,mysql;
 
 create table test_truncate_tb1 (sid smallint,id int,lid int8,num numeric,f4 float,f8 double precision);
@@ -52,4 +52,4 @@ SELECT TRUNCATE(0, 0);
 SELECT TRUNCATE(0.0005, 2);
 
 set search_path to default;
-set lightdb_syntax_compatible_type = off;
+

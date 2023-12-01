@@ -10,6 +10,11 @@
 #include "utils/lsyscache.h"
 #include "utils/timestamp.h"
 #include "mb/pg_wchar.h"
+#include "utils/guc.h"
+#include "utils/lt_guc.h"
+#include "utils/date.h"
+#include "utils/datetime.h"
+
 
 #ifdef HAVE_LIBZ
 #include <zlib.h>
@@ -70,10 +75,12 @@ PG_FUNCTION_INFO_V1(myfce_group_concat_finalfn);
 PG_FUNCTION_INFO_V1(myfce_find_in_set);
 PG_FUNCTION_INFO_V1(myfce_date_format);
 PG_FUNCTION_INFO_V1(myfce_date_format_timestamptz);
-PG_FUNCTION_INFO_V1(myfce_str_to_date);
 PG_FUNCTION_INFO_V1(myfce_zlib_compress);
 PG_FUNCTION_INFO_V1(myfce_zlib_decompress);
 PG_FUNCTION_INFO_V1(myfce_plvstr_instr2);
+PG_FUNCTION_INFO_V1(myfce_str_to_date);		// return datetime
+PG_FUNCTION_INFO_V1(myfce_str_to_date2);    // return date
+PG_FUNCTION_INFO_V1(myfce_str_to_date3);    // return time
 
 
 #define PARAMETER_ERROR(detail) \
@@ -337,11 +344,12 @@ myfce_find_in_set(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(result);
 }
 
-static void parse_date_time_format(const char *format,size_t format_length,StringInfoData *str_fmat)
+static void
+parse_date_time_format(const char *format,size_t format_length,StringInfoData *str_fmat)
 {
 
-	const char *ptr= format;
-	const char *end= ptr+format_length;
+	const char *ptr = format;
+	const char *end = ptr+format_length;
 
 	for (; ptr != end; ptr++)
 	{
@@ -467,21 +475,132 @@ myfce_date_format_timestamptz(PG_FUNCTION_ARGS)
       PG_RETURN_TEXT_P(result);
 }
 
-Datum myfce_str_to_date(PG_FUNCTION_ARGS)
+/*
+ * lightdb change at 2023/02/17 for mysql compatible str_to_date
+ */
+Datum
+myfce_str_to_date(PG_FUNCTION_ARGS)
 {
-	text *arg0 = PG_GETARG_TEXT_PP(0);
-	text *t1 = PG_GETARG_TEXT_PP(1);
+	text *date_txt = PG_GETARG_TEXT_PP(0);
+	text *fmt = PG_GETARG_TEXT_PP(1);
 	Timestamp result;
-	Datum newDate;
+	int			tz;
+	struct pg_tm tm;
+	fsec_t		fsec;
+	int			fprec;
+	bool		return_null = false;
 
 	StringInfoData str_fmat;
 	initStringInfo(&str_fmat);
 
-	parse_date_time_format(VARDATA_ANY(t1), VARSIZE_ANY_EXHDR(t1),&str_fmat);
-	newDate = lt_to_timestamp(arg0, cstring_to_text_with_len(str_fmat.data,str_fmat.len));
+	parse_date_time_format(VARDATA_ANY(fmt), VARSIZE_ANY_EXHDR(fmt), &str_fmat);
 
-	result = DatumGetTimestamp(DirectFunctionCall1(timestamptz_timestamp, newDate));
+	lt_do_to_timestamp(date_txt, cstring_to_text_with_len(str_fmat.data,str_fmat.len), InvalidOid, true,
+					&tm, &fsec, &fprec, NULL, NULL, &return_null);
+
+	if (return_null)
+		PG_RETURN_NULL();
+
+	/* Use the specified time zone, if any. */
+	if (tm.tm_zone)
+	{
+		int			dterr = DecodeTimezone(unconstify(char *, tm.tm_zone), &tz);
+
+		if (dterr)
+			DateTimeParseError(dterr, text_to_cstring(date_txt), "timestamptz");
+	}
+	else
+		tz = DetermineTimeZoneOffset(&tm, session_timezone);
+	
+	if (tm2timestamp(&tm, fsec, &tz, &result) != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
+				 errmsg("timestamp out of range")));
+
+	/* Use the specified fractional precision, if any. */
+	if (fprec)
+		AdjustTimestampForTypmod(&result, fprec);
+
+	result = DatumGetTimestamp(DirectFunctionCall1(timestamptz_timestamp, TimestampGetDatum(result)));
+
 	PG_RETURN_TIMESTAMP(result);
+}
+
+/*
+ * lightdb add at 2023/02/13 for mysql compatible str_to_date
+ * str_to_date2 return date
+ */
+Datum 
+myfce_str_to_date2(PG_FUNCTION_ARGS)
+{
+	text *date_txt = PG_GETARG_TEXT_PP(0);
+	text *fmt = PG_GETARG_TEXT_PP(1);
+
+	DateADT		result;
+	struct pg_tm tm;
+	fsec_t		fsec;
+
+	bool return_null = false;
+	StringInfoData strfmt;
+
+	initStringInfo(&strfmt);
+	parse_date_time_format(VARDATA_ANY(fmt), VARSIZE_ANY_EXHDR(fmt), &strfmt);
+
+	lt_do_to_timestamp(date_txt, cstring_to_text_with_len(strfmt.data, strfmt.len), InvalidOid, false,
+					&tm, &fsec, NULL, NULL, NULL, &return_null);
+	
+	if (return_null)
+		PG_RETURN_NULL();
+
+	/* Prevent overflow in Julian-day routines */
+	if (!IS_VALID_JULIAN(tm.tm_year, tm.tm_mon, tm.tm_mday))
+		ereport(ERROR,
+				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
+				 errmsg("date out of range: \"%s\"",
+						text_to_cstring(date_txt))));
+
+	result = date2j(tm.tm_year, tm.tm_mon, tm.tm_mday) - POSTGRES_EPOCH_JDATE;
+
+	/* Now check for just-out-of-range dates */
+	if (!IS_VALID_DATE(result))
+		ereport(ERROR,
+				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
+				 errmsg("date out of range: \"%s\"",
+						text_to_cstring(date_txt))));
+
+	PG_RETURN_DATEADT(result);
+}
+
+/*
+ * lightdb add at 2023/02/13 for mysql compatible str_to_date
+ * str_to_date3 return time
+ */
+Datum 
+myfce_str_to_date3(PG_FUNCTION_ARGS)
+{
+	text *time_txt = PG_GETARG_TEXT_PP(0);
+	text *fmt = PG_GETARG_TEXT_PP(1);
+	TimeADT		result;
+	struct pg_tm tm;
+	fsec_t 		fsec;
+	int32 typmod = -1;
+	bool return_null = false;
+
+	StringInfoData strfmt;
+	initStringInfo(&strfmt);
+
+	parse_date_time_format(VARDATA_ANY(fmt), VARSIZE_ANY_EXHDR(fmt), &strfmt);
+
+	lt_do_to_timestamp(time_txt, cstring_to_text_with_len(strfmt.data, strfmt.len), InvalidOid, false,
+					&tm, &fsec, NULL, NULL, NULL, &return_null);
+
+	if (return_null)
+		PG_RETURN_NULL();
+
+	tm2time(&tm, fsec, &result);
+	AdjustTimeForTypmod(&result, typmod);
+
+	PG_RETURN_TIMEADT(result);
 }
 
 Datum myfce_zlib_compress(PG_FUNCTION_ARGS)

@@ -1,0 +1,327 @@
+drop DATABASE if exists test_mysql;
+NOTICE:  database "test_mysql" does not exist, skipping
+CREATE DATABASE test_mysql with lightdb_syntax_compatible_type mysql;
+\c test_mysql
+set DateStyle to ISO;
+set DateStyle to YMD;
+show DateStyle;
+ DateStyle 
+-----------
+ ISO, YMD
+(1 row)
+
+CREATE EXTENSION IF NOT EXISTS myfce;
+--RETURN DATE
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y');
+ str_to_date 
+-------------
+ 2013-05-01
+(1 row)
+
+SELECT mysql.str_to_date('May 1, 2013','%M %d,%Y');
+ str_to_date 
+-------------
+ 2013-05-01
+(1 row)
+
+SELECT mysql.str_to_date('04/30/2004', '%m/%d/%Y');
+ str_to_date 
+-------------
+ 2004-04-30
+(1 row)
+
+SELECT mysql.str_to_date('9','%m');
+  str_to_date  
+---------------
+ 0001-09-01 BC
+(1 row)
+
+SELECT mysql.str_to_date('13','%m');
+ERROR:  date/time field value out of range: "13"
+SELECT mysql.str_to_date('9','%d');
+  str_to_date  
+---------------
+ 0001-01-09 BC
+(1 row)
+
+SELECT mysql.str_to_date('32','%d');
+ERROR:  date/time field value out of range: "32"
+SELECT mysql.str_to_date('9','%Y'); --2009-00-00
+ str_to_date 
+-------------
+ 0009-01-01
+(1 row)
+
+SELECT mysql.str_to_date('1999','%Y');
+ str_to_date 
+-------------
+ 1999-01-01
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11 11:12:26','%Y-%m-%d');
+ str_to_date 
+-------------
+ 2022-12-11
+(1 row)
+
+SELECT mysql.STR_TO_DATE('01,5,2013','%h:%i:%s'); --error
+ERROR:  date/time field value out of range: "01,5,2013"
+--RETURN datetime
+SELECT mysql.STR_TO_DATE('May 1, 2013','%M %d,%Y,%h:%i:%s');
+     str_to_date     
+---------------------
+ 2013-05-01 00:00:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11 11:12:26','%Y-%m-%d %h:%i:%s');
+     str_to_date     
+---------------------
+ 2022-12-11 11:12:26
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11 14:12:26','%Y-%m-%d %H:%i:%s');
+     str_to_date     
+---------------------
+ 2022-12-11 14:12:26
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11','%Y-%m-%d %H:%i:%s');
+     str_to_date     
+---------------------
+ 2022-12-11 00:00:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('11:12:26','%Y-%m-%d %h:%i:%s'); --error
+ERROR:  unmatched format character "-"
+SELECT mysql.STR_TO_DATE('Nov 05 2022 02:30 PM','%b %d %Y %h:%i %p');
+     str_to_date     
+---------------------
+ 2022-11-05 14:30:00
+(1 row)
+
+--RETURN TIME
+SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s');
+ str_to_date 
+-------------
+ 11:12:26
+(1 row)
+
+SELECT mysql.STR_TO_DATE('01-5-2013','%h-%i-%s'); --error
+ERROR:  date/time field value out of range: "01-5-2013"
+SELECT mysql.STR_TO_DATE('2013-5-2','%h-%i-%s'); --error
+ERROR:  hour "2013" is invalid for the 12-hour clock
+HINT:  Use the 24-hour clock, or give an hour between 1 and 12.
+SELECT mysql.STR_TO_DATE('9','%s');
+ str_to_date 
+-------------
+ 00:00:09
+(1 row)
+
+SELECT mysql.STR_TO_DATE('61','%s');
+ERROR:  date/time field value out of range: "61"
+SELECT mysql.STR_TO_DATE('9','%h');
+ str_to_date 
+-------------
+ 09:00:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('13','%h');
+ERROR:  hour "13" is invalid for the 12-hour clock
+HINT:  Use the 24-hour clock, or give an hour between 1 and 12.
+SELECT mysql.STR_TO_DATE('13','%H');
+ str_to_date 
+-------------
+ 13:00:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('25','%H');
+ERROR:  date/time field value out of range: "25"
+SELECT mysql.STR_TO_DATE('9','%i');
+ str_to_date 
+-------------
+ 00:09:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('61','%i');
+ERROR:  date/time field value out of range: "61"
+SELECT mysql.STR_TO_DATE('2022-12-11 12:12:26','%h:%i:%s'); --error
+ERROR:  hour "2022" is invalid for the 12-hour clock
+HINT:  Use the 24-hour clock, or give an hour between 1 and 12.
+SELECT STR_TO_DATE('a09:30:17','a%h:%i:%s');
+ str_to_date 
+-------------
+ 09:30:17
+(1 row)
+
+--FUNCTION nesting
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y') + interval '2 years';
+      ?column?       
+---------------------
+ 2015-05-01 00:00:00
+(1 row)
+
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y') + interval '2 month';
+      ?column?       
+---------------------
+ 2013-07-01 00:00:00
+(1 row)
+
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y') + interval '2 day';
+      ?column?       
+---------------------
+ 2013-05-03 00:00:00
+(1 row)
+
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y') + 1;
+  ?column?  
+------------
+ 2013-05-02
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11 14:12:26','%Y-%m-%d %H:%i:%s') +1;  --error
+ERROR:  operator does not exist: timestamp without time zone + integer
+LINE 1: ...l.STR_TO_DATE('2022-12-11 14:12:26','%Y-%m-%d %H:%i:%s') +1;
+                                                                    ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s') +1; --error
+ERROR:  operator does not exist: time without time zone + integer
+LINE 1: SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s') +1;
+                                                        ^
+HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s') + interval '2 hour';
+ ?column? 
+----------
+ 13:12:26
+(1 row)
+
+SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s') + interval '2 minute';
+ ?column? 
+----------
+ 11:14:26
+(1 row)
+
+SELECT mysql.STR_TO_DATE('10:12:26','%h:%i:%s') + interval '2 SECOND';
+ ?column? 
+----------
+ 10:12:28
+(1 row)
+
+SELECT mysql.STR_TO_DATE('10:12:26','%h:%i:%s') + interval '2';
+ ?column? 
+----------
+ 10:12:28
+(1 row)
+
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y') + interval '2'; 
+      ?column?       
+---------------------
+ 2013-05-01 00:00:02
+(1 row)
+
+SELECT mysql.STR_TO_DATE('2022-12-11 14:12:26','%Y-%m-%d %H:%i:%s') +interval '2';
+      ?column?       
+---------------------
+ 2022-12-11 14:12:28
+(1 row)
+
+drop function if exists fun0;
+NOTICE:  function fun0() does not exist, skipping
+CREATE FUNCTION fun0(v DATE) RETURNS text AS $$
+BEGIN
+    RETURN  v::text;
+END;
+$$ LANGUAGE plpgsql;
+CREATE FUNCTION fun0(v TIME) RETURNS text AS $$
+BEGIN
+    RETURN  v::text;
+END;
+$$ LANGUAGE plpgsql;
+CREATE FUNCTION fun0(v datetime) RETURNS text AS $$
+BEGIN
+    RETURN  v::text;
+END;
+$$ LANGUAGE plpgsql;
+select fun0(mysql.STR_TO_DATE('12:12:26','%H:%i:%s'));
+   fun0   
+----------
+ 12:12:26
+(1 row)
+
+select fun0(mysql.STR_TO_DATE('May 1, 2013','%M %d,%Y,%h:%i:%s'));
+        fun0         
+---------------------
+ 2013-05-01 00:00:00
+(1 row)
+
+select fun0(mysql.str_to_date('04/30/2004', '%m/%d/%Y'));
+    fun0    
+------------
+ 2004-04-30
+(1 row)
+
+select fun0(mysql.STR_TO_DATE('2022-12-11 14:12:26','%Y-%m-%d %H:%i:%s'));
+        fun0         
+---------------------
+ 2022-12-11 14:12:26
+(1 row)
+
+--no_zero_date
+SET lightdb_sql_mode = 'NO_ZERO_DATE'; 
+SELECT str_to_date('9','%d');
+ str_to_date 
+-------------
+ 
+(1 row)
+
+SELECT STR_TO_DATE('2022-12-11 11:12:26','%Y-%m');
+ str_to_date 
+-------------
+ 
+(1 row)
+
+--prepare
+prepare testfunc(varchar(100),varchar(100)) as select mysql.str_to_date($1,$2);
+ERROR:  function str_to_date not support bind variable, format must be string
+execute testfunc('2022-12-11 11:12:26','%Y-%m-%d');
+ERROR:  prepared statement "testfunc" does not exist
+execute testfunc('2022-12-11','%Y-%m-%d');
+ERROR:  prepared statement "testfunc" does not exist
+execute testfunc('2022-12-11 11:12:26','%Y-%m-%d %h:%i:%s');
+ERROR:  prepared statement "testfunc" does not exist
+execute testfunc('11:12:26','%h:%i:%s');
+ERROR:  prepared statement "testfunc" does not exist
+drop DATABASE if exists test_oracle;
+NOTICE:  database "test_oracle" does not exist, skipping
+CREATE DATABASE test_oracle with lightdb_syntax_compatible_type oracle;
+NOTICE:  auto create user "test_oracle" success
+\c test_oracle
+set DateStyle to ISO;
+set DateStyle to YMD;
+show DateStyle;
+ DateStyle 
+-----------
+ ISO, YMD
+(1 row)
+
+CREATE EXTENSION IF NOT EXISTS myfce;
+SELECT mysql.str_to_date('01,5,2013','%d,%m,%Y');
+     str_to_date     
+---------------------
+ 2013-05-01 00:00:00
+(1 row)
+
+SELECT mysql.STR_TO_DATE('11:12:26','%h:%i:%s');
+      str_to_date       
+------------------------
+ 0001-01-01 11:12:26 BC
+(1 row)
+
+SELECT mysql.str_to_date('9','%m');
+      str_to_date       
+------------------------
+ 0001-09-01 00:00:00 BC
+(1 row)
+
+\c postgres
+DROP DATABASE test_oracle;
+DROP DATABASE test_mysql;

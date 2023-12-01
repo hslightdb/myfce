@@ -1,2 +1,2 @@
 test: init
-test: find_in_set group_concat if truncate myfce
+test: find_in_set group_concat if truncate str_to_date test_lt_str_to_date divide myfce
