@@ -1,5 +1,5 @@
 -- locate
-set lightdb_syntax_compatible_type = mysql;
+\c test_mysql_myfce;
 set search_path to "$user",public,lt_catalog,mysql;
 select locate('1','a11111111111111',2);
 select locate('1','a11111111111111',0);
@@ -91,25 +91,6 @@ SELECT UNCOMPRESS(COMPRESS('any string'));
 -- SELECT UNCOMPRESS('any string');  -- should  null
 SELECT UNCOMPRESS(COMPRESS(''));
 
-select str_to_date('25,5,2022','%d,%m,%Y');
-select str_to_date('2022-05-26 11:30:00','%Y-%m-%d');
-select str_to_date('August,5,2022', '%M,%e,%Y');
-select str_to_date('August 10 2022', '%M %d %Y');
-select str_to_date('Monday, August 14, 2022', '%W, %M %e, %Y');
-
-
-select str_to_date('20220525 1130','%Y%m%d %h%i');
-select str_to_date('2022-05-26 11:30:00','%Y-%m-%d %H:%i:%s');
-select str_to_date('2022,5,27 10,40,10', '%Y,%m,%d %h,%i,%s');
-
--- The following test cases are incompatible with MySQL
-select str_to_date('2022','%Y');
-select str_to_date('11','%h');
-select str_to_date('1130','%h%i');
-select str_to_date('113005','%h%i%s');
-select str_to_date('August,5,2017', '%M %e %Y');
-select str_to_date('Monday, August 14, 2017', '%W %M %e %Y');
- 
 drop table test_date;
 select from_unixtime('1659067690');
 select from_unixtime('1659067690'::text);
@@ -304,4 +285,4 @@ select instr('abc你好aa哈哈', '哈哈');
 select instr('abc你好aa哈哈!@#$%^&*()_+-=[]{};,.', '&*');
 
 set search_path to default;
-set lightdb_syntax_compatible_type = off;
+

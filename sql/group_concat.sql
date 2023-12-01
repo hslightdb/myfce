@@ -1,4 +1,4 @@
-set lightdb_syntax_compatible_type = mysql;
+\c test_mysql_myfce;
 set search_path to "$user",public,lt_catalog,mysql;
 
 CREATE TABLE test_group_concat_tb1 (department_id INT,manager_id INT,last_name varchar(50),hiredate varchar(50),SALARY INT);
@@ -259,4 +259,3 @@ SELECT prod_name,group_concat(test_col) from Products group by prod_name;
 DROP TABLE  if  EXISTS Products cascade;
 
 set search_path to default;
-set lightdb_syntax_compatible_type = off;
