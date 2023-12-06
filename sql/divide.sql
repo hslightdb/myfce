@@ -87,6 +87,31 @@ select '2.2' / null;
 select null / '2.2';
 select null / '2';
 
+-- test div zero
+select 2 / 0;
+select 2.9 / 0;
+select 2 / 0.0;
+select 2.0 / 0.0;
+select '2' / 0;
+select '2.2' / 0;
+select '2' / 0.0;
+select '2.2' / 0.0;
+select '2' / '0';
+select '2.2' / '0';
+select '2' / '0.0';
+select '2.2' / '0.0';
+select 2::int / 0::int;
+select 2::int / 0::float;
+select 2.2::float / 0::float;
+select 2::int2 / 0::int2;
+select 2::int8 / 0::int8;
+select 2::numeric / 0::numeric;
+select 2::int4 / 0::int2;
+select 2::int4 / 0::int8;
+select 2::int8 / 0::int2;
+select 2::int8 / 0::int4;
+select 2::int8 / 0::float;
+
 -- search path
 set search_path to public;
 show search_path;

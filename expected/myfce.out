@@ -1389,4 +1389,18 @@ select instr('abc你好aa哈哈!@#$%^&*()_+-=[]{};,.', '&*');
     16
 (1 row)
 
+select 1 from dual;
+ ?column? 
+----------
+        1
+(1 row)
+
+create user mytestuser with password 'mytestuser';
+\c - mytestuser
+select 2 from dual;
+ ?column? 
+----------
+        2
+(1 row)
+
 set search_path to default;

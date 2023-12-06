@@ -236,3 +236,104 @@ create operator mysql./ (
   rightarg  = text,
   procedure = mysql.numeric_text_div
 );
+
+
+
+-- mysql for substr,substring
+
+CREATE FUNCTION mysql.substr(str text, pos int)
+RETURNS text
+AS 'MODULE_PATHNAME','mysql_substr2'
+LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION mysql.substr(text, int) IS 'Returns substring started on pos to end';
+
+-- explicitly do conv for numeric -> int
+CREATE FUNCTION mysql.substr(str text, pos numeric)
+RETURNs text AS
+$$
+    SELECT mysql.substr($1::text,trunc($2,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substr(text, numeric) IS 'Returns substring started on pos to end';
+
+CREATE FUNCTION mysql.substr(str text, pos int, len int)
+RETURNS text
+AS 'MODULE_PATHNAME','mysql_substr3'
+LANGUAGE C IMMUTABLE STRICT;
+COMMENT ON FUNCTION mysql.substr(text, int,int) IS 'Returns substring started on pos to end, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substr(str text, pos numeric, len int)
+RETURNs text AS
+$$
+    SELECT mysql.substr($1::text,trunc($2,1)::int, $3::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substr(text,numeric,int) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substr(str text, pos int, len numeric)
+RETURNs text AS
+$$
+    SELECT mysql.substr($1::text,$2::int, trunc($3,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substr(text,int,numeric) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substr(str text, pos numeric, len numeric)
+RETURNs text AS
+$$
+    SELECT mysql.substr($1::text,trunc($2,1)::int, trunc($3,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substr(text,numeric,numeric) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+-- mysql.substring(text,int|numeric) begin
+CREATE FUNCTION mysql.substring(str text, pos int)
+RETURNS text AS
+$$
+    SELECT mysql.substr($1::text,$2::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, int) IS 'Returns substring started on pos to end';
+
+CREATE FUNCTION mysql.substring(str text, pos numeric)
+RETURNs text AS
+$$
+    SELECT mysql.substr($1::text,trunc($2,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, numeric) IS 'Returns substring started on pos to end';
+-- mysql.substring(text,int|numeric) end
+
+--mysql.substring(text,int|numeric,int|numeric) begin
+CREATE FUNCTION mysql.substring(str text, pos int, len int)
+RETURNS text AS
+$$
+    SELECT mysql.substr($1::text,$2::int, $3::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, int, int) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substring(str text, pos numeric, len int)
+RETURNS text AS
+$$
+    SELECT mysql.substr($1::text, trunc($2,1)::int, $3::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, numeric, int) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substring(str text, pos int, len numeric)
+RETURNS text AS
+$$
+    SELECT mysql.substr($1::text, $2::int, trunc($3,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, int, numeric) IS 'Returns substring started on pos, with a maximum len chars of len';
+
+CREATE FUNCTION mysql.substring(str text, pos numeric, len numeric)
+RETURNS text AS
+$$
+    SELECT mysql.substr($1::text, trunc($2,1)::int, trunc($3,1)::int);
+$$
+LANGUAGE SQL IMMUTABLE;
+COMMENT ON FUNCTION mysql.substring(text, numeric, numeric) IS 'Returns substring started on pos, with a maximum len chars of len';
+--mysql.substring(text,int|numeric,int|numeric) end

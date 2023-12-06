@@ -284,5 +284,9 @@ select instr('abc123defnhdefa你好aa', '哈哈');
 select instr('abc你好aa哈哈', '哈哈');
 select instr('abc你好aa哈哈!@#$%^&*()_+-=[]{};,.', '&*');
 
-set search_path to default;
+select 1 from dual;
+create user mytestuser with password 'mytestuser';
+\c - mytestuser
+select 2 from dual;
 
+set search_path to default;

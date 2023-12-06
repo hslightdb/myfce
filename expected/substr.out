@@ -1,0 +1,476 @@
+DROP DATABASE IF EXISTS lttest_mysql_mode_for_substr;
+NOTICE:  database "lttest_mysql_mode_for_substr" does not exist, skipping
+CREATE DATABASE lttest_mysql_mode_for_substr WITH lightdb_syntax_compatible_type 'mysql';
+
+\c lttest_mysql_mode_for_substr;
+\pset null NULL;
+
+CREATE EXTENSION IF NOT EXISTS myfce;
+
+
+-- substr check begin
+
+-- illegal input param
+select substr();
+ERROR:  function substr() does not exist
+LINE 1: select substr();
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select substr('');
+ERROR:  function substr(unknown) does not exist
+LINE 1: select substr('');
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select substr('',);
+ERROR:  syntax error at or near ")"
+LINE 1: select substr('',);
+                         ^
+select substr('','');
+ERROR:  invalid input syntax for type numeric: ""
+LINE 1: select substr('','');
+                         ^
+select substr('abc');
+ERROR:  function substr(unknown) does not exist
+LINE 1: select substr('abc');
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select substr('abc','@');
+ERROR:  invalid input syntax for type numeric: "@"
+LINE 1: select substr('abc','@');
+                            ^
+
+-- null CHECK
+
+select substr(NULL,NULL,NULL);
+ substr 
+--------
+ NULL;
+(1 row)
+
+select substr(NULL,NULL,0);
+ substr 
+--------
+ NULL;
+(1 row)
+
+select substr(NULL,0,0);
+ substr 
+--------
+ NULL;
+(1 row)
+
+
+-- empty string check
+select substr('',0);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('',1);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('',0,0);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('',1,0);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- pos 0 CHECK
+select substr('abc',0);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',0,1);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- len < 1 CHECK
+
+select substr('abc',1,0.4);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',1,0.5);
+ substr 
+--------
+ a
+(1 row)
+
+select substr('abc',1,0);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',1,-1);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- POS <0 CHECK
+select substr('abc',-1,1);
+ substr 
+--------
+ c
+(1 row)
+
+select substr('abc',-0.5,1);
+ substr 
+--------
+ c
+(1 row)
+
+select substr('abc',-0.4,1);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- pos excced limit check
+
+select substr('abc',4,3);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',-4,3);
+ substr 
+--------
+ 
+(1 row)
+
+
+
+-- pos round CHECK
+select substr('abc',0.5,1);
+ substr 
+--------
+ a
+(1 row)
+
+select substr('abc',-0.5,1);
+ substr 
+--------
+ c
+(1 row)
+
+select substr('abc',0.4,1);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',-0.4,1);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- len round CHECK
+select substr('abc',1,0.5);
+ substr 
+--------
+ a
+(1 row)
+
+select substr('abc',1,0.4);
+ substr 
+--------
+ 
+(1 row)
+
+
+--both pos&len round CHECK
+select substr('abc',0.5,0.5);
+ substr 
+--------
+ a
+(1 row)
+
+select substr('abc' ,0.5,0.4);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc' ,0.4,0.5);
+ substr 
+--------
+ 
+(1 row)
+
+select substr('abc',0.4,0.4);
+ substr 
+--------
+ 
+(1 row)
+
+
+-- check wchar
+select substr('汉字abc',1);
+ substr  
+---------
+ 汉字abc
+(1 row)
+
+select substr('汉字abc',1,1);
+ substr 
+--------
+ 汉
+(1 row)
+
+select substr('汉字abc',-2,2);
+ substr 
+--------
+ bc
+(1 row)
+
+
+
+--substr check end
+
+-- substring check begin
+
+-- illegal input param
+select substring();
+ERROR:  function mysql.substring() does not exist
+LINE 1: select substring();
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select substring('');
+ERROR:  function mysql.substring(unknown) does not exist
+LINE 1: select substring('');
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+select substring('',);
+ERROR:  syntax error at or near ")"
+LINE 1: select substring('',);
+                            ^
+select substring('','')
+select substring('abc');
+ERROR:  syntax error at or near "substring"
+LINE 2: select substring('abc');
+               ^
+select substring('abc','@');
+ERROR:  invalid input syntax for type numeric: "@"
+LINE 1: select substring('abc','@');
+                               ^
+
+-- null CHECK
+
+select substring(NULL,NULL,NULL);
+ substring 
+-----------
+ NULL;
+(1 row)
+
+select substring(NULL,NULL,0);
+ substring 
+-----------
+ NULL;
+(1 row)
+
+select substring(NULL,0,0);
+ substring 
+-----------
+ NULL;
+(1 row)
+
+
+-- empty string check
+--select substring('',0);
+--select substring('',1);
+--select substring('',0,0);
+--select substring('',1,0);
+
+-- pos 0 CHECK
+select substring('abc',0);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',0,1);
+ substring 
+-----------
+ 
+(1 row)
+
+
+-- len < 1 CHECK
+
+select substring('abc',1,0.4);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',1,0.5);
+ substring 
+-----------
+ a
+(1 row)
+
+select substring('abc',1,0);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',1,-1);
+ substring 
+-----------
+ 
+(1 row)
+
+
+-- POS <0 CHECK
+select substring('abc',-1,1);
+ substring 
+-----------
+ c
+(1 row)
+
+select substring('abc',-0.5,1);
+ substring 
+-----------
+ c
+(1 row)
+
+select substring('abc',-0.4,1);
+ substring 
+-----------
+ 
+(1 row)
+
+
+-- pos excced limit check
+
+select substring('abc',4,3);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',-4,3);
+ substring 
+-----------
+ 
+(1 row)
+
+
+
+-- pos round CHECK
+select substring('abc',0.5,1);
+ substring 
+-----------
+ a
+(1 row)
+
+select substring('abc',-0.5,1);
+ substring 
+-----------
+ c
+(1 row)
+
+select substring('abc',0.4,1);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',-0.4,1);
+ substring 
+-----------
+ 
+(1 row)
+
+
+-- len round CHECK
+select substring('abc',1,0.5);
+ substring 
+-----------
+ a
+(1 row)
+
+select substring('abc',1,0.4);
+ substring 
+-----------
+ 
+(1 row)
+
+
+--both pos&len round CHECK
+select substring('abc',0.5,0.5);
+ substring 
+-----------
+ a
+(1 row)
+
+select substring('abc' ,0.5,0.4);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc' ,0.4,0.5);
+ substring 
+-----------
+ 
+(1 row)
+
+select substring('abc',0.4,0.4);
+ substring 
+-----------
+ 
+(1 row)
+
+
+-- check wchar
+select substring('汉字abc',1);
+ substring 
+-----------
+ 汉字abc
+(1 row)
+
+select substring('汉字abc',1,1);
+ substring 
+-----------
+ 汉
+(1 row)
+
+select substring('汉字abc',-2,2);
+ substring 
+-----------
+ bc
+(1 row)
+
+
+--substring check end
+DROP EXTENSION myfce;
+
+\c postgres;
+DROP DATABASE lttest_mysql_mode_for_substr;
