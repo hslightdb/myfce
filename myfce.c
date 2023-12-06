@@ -65,7 +65,6 @@ appendStringInfoText(StringInfo str, const text *t)
 }
 
 
-
 PG_FUNCTION_INFO_V1(myfce_group_concat_transfn);
 PG_FUNCTION_INFO_V1(myfce_group_concat_transfn_bigint);
 PG_FUNCTION_INFO_V1(myfce_group_concat_transfn_float8);
@@ -81,6 +80,13 @@ PG_FUNCTION_INFO_V1(myfce_plvstr_instr2);
 PG_FUNCTION_INFO_V1(myfce_str_to_date);		// return datetime
 PG_FUNCTION_INFO_V1(myfce_str_to_date2);    // return date
 PG_FUNCTION_INFO_V1(myfce_str_to_date3);    // return time
+
+
+PG_FUNCTION_INFO_V1(mysql_substr2);
+PG_FUNCTION_INFO_V1(mysql_substr3);
+
+PG_FUNCTION_INFO_V1(myfce_sysdate_0);
+//PG_FUNCTION_INFO_V1(myfce_sysdate_1);
 
 
 #define PARAMETER_ERROR(detail) \
@@ -779,3 +785,80 @@ myfce_plvstr_instr2 (PG_FUNCTION_ARGS)
 
 	PG_RETURN_INT32(my_instr(arg1, arg2, 1, 1));
 }
+
+
+/**
+ * @note: compliant to mysql's behaviour
+ *  a): len == -1 means a magic number for mysql_substr2
+ * @ref: https://dev.mysql.com/doc/refman/8.0/en/string-functions.html#function_substr
+ * @date: 2023-03-10
+ * @author lightdb
+ * 
+*/
+static text *
+mysql_substr(Datum str, int pos, int len)
+{
+	if(pos == 0)
+	{
+		return cstring_to_text("");
+	}
+
+	/*If pos < 0, check left most first*/
+	if (pos < 0)
+	{
+		text   *t;
+		int32	n;
+
+		t = DatumGetTextPP(str);
+		n = pg_mbstrlen_with_len(VARDATA_ANY(t), VARSIZE_ANY_EXHDR(t));
+		pos = n + pos + 1;
+		if (pos <= 0)
+			return cstring_to_text("");
+		str = PointerGetDatum(t);/* save detoasted text */
+	}
+
+	if (len < 0)
+		return DatumGetTextP(DirectFunctionCall2(text_substr_no_len,
+			str, Int32GetDatum(pos)));
+	else
+		return DatumGetTextP(DirectFunctionCall3(text_substr,
+			str, Int32GetDatum(pos), Int32GetDatum(len)));
+}
+
+
+Datum
+mysql_substr2(PG_FUNCTION_ARGS)
+{
+	if(PG_ARGISNULL(0) || PG_ARGISNULL(1))
+		PG_RETURN_NULL();
+
+	PG_RETURN_TEXT_P(mysql_substr(PG_GETARG_DATUM(0), PG_GETARG_INT32(1), -1));
+}
+
+Datum
+mysql_substr3(PG_FUNCTION_ARGS)
+{
+	int32 len;
+	if(PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2))
+		PG_RETURN_NULL();
+
+	len = PG_GETARG_INT32(2);
+	if (len < 1)
+		return DatumGetTextP(cstring_to_text(""));
+	PG_RETURN_TEXT_P(mysql_substr(PG_GETARG_DATUM(0), PG_GETARG_INT32(1), len));
+}
+
+//LightDB add on 2023/04/27 for s202304244701
+Datum
+myfce_sysdate_0(PG_FUNCTION_ARGS)
+{
+	return TimestampGetDatum(GetMysqlSysdate(0));
+}
+
+/*
+Datum
+myfce_sysdate_1(PG_FUNCTION_ARGS)
+{
+	return TimestampGetDatum(GetMysqlSysdate(PG_GETARG_INT32(0)));
+}
+*/

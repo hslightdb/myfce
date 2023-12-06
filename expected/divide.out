@@ -400,6 +400,168 @@ select null / '2';
          
 (1 row)
 
+-- test div zero
+select 2 / 0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2.9 / 0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2 / 0.0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2.0 / 0.0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2' / 0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2.2' / 0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2' / 0.0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2.2' / 0.0;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2' / '0';
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2.2' / '0';
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2' / '0.0';
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select '2.2' / '0.0';
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int / 0::int;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int / 0::float;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2.2::float / 0::float;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int2 / 0::int2;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int8 / 0::int8;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::numeric / 0::numeric;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int4 / 0::int2;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int4 / 0::int8;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int8 / 0::int2;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int8 / 0::int4;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
+select 2::int8 / 0::float;
+WARNING:  division by zero
+ ?column? 
+----------
+         
+(1 row)
+
 -- search path
 set search_path to public;
 show search_path;
