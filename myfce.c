@@ -1,4 +1,3 @@
-
 #include<stdint.h>
 #include "postgres.h"
 #include "funcapi.h"
@@ -16,6 +15,10 @@
 #include "utils/datetime.h"
 
 
+#include "../../src/backend/utils/adt/jsonpath_exec.c"
+#include "../../src/backend/utils/adt/jsonfuncs.c"
+#include "../../src/backend/utils/adt/jsonb.c"
+
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
@@ -32,6 +35,7 @@
 				  		(((uint32) ((unsigned char) (A)[3])) << 24))
 
 #define BLOB_HEADER 4
+
 
 PG_MODULE_MAGIC;
 
@@ -88,6 +92,59 @@ PG_FUNCTION_INFO_V1(mysql_substr3);
 PG_FUNCTION_INFO_V1(myfce_sysdate_0);
 //PG_FUNCTION_INFO_V1(myfce_sysdate_1);
 
+//LightDB add on 2023/05/22 for JSON API
+PG_FUNCTION_INFO_V1(myfce_json_array);
+PG_FUNCTION_INFO_V1(myfce_json_object);
+PG_FUNCTION_INFO_V1(myfce_json_extract);
+PG_FUNCTION_INFO_V1(myfce_json_contains_path);
+PG_FUNCTION_INFO_V1(text_bool_equal);
+PG_FUNCTION_INFO_V1(text_bool_not_equal);
+
+//LightDB add on 2023/09/11 for JSON API
+PG_FUNCTION_INFO_V1(myfce_json_remove);
+PG_FUNCTION_INFO_V1(myfce_json_insert);
+PG_FUNCTION_INFO_V1(myfce_json_replace);
+PG_FUNCTION_INFO_V1(myfce_json_set);
+
+
+/* LightDB add at 2023/12/04 for 202310213118, quarter function */
+PG_FUNCTION_INFO_V1(quarter_ts);
+
+/* LightDB add at 2023/12/04 for 202310213117, support last_day */
+PG_FUNCTION_INFO_V1(my_last_day);
+
+/* LightDB add for 202311014178 */
+PG_FUNCTION_INFO_V1(lt_myfce_date_add_days);
+PG_FUNCTION_INFO_V1(lt_myfce_date_sub_days);
+PG_FUNCTION_INFO_V1(lt_myfce_days_sub_date);
+PG_FUNCTION_INFO_V1(lt_myfce_date_add_days_numeric);
+PG_FUNCTION_INFO_V1(lt_myfce_date_sub_days_numeric);
+PG_FUNCTION_INFO_V1(lt_myfce_days_sub_date_numeric);
+
+static int64 LtDateFormatToInt8(DateADT dateVal);
+
+static void
+JsonpathItemString(StringInfo buf, JsonPathItem *v);
+static void
+transformJsonpath(JsonPath *jp, Datum **path_elems, bool **path_nulls, int *path_len, bool chroot);
+
+/* Follow three functions are shamelessly stolen from the 'jsonfuncs.c'
+   We did some tiny changes for these functions, for keeping a consistent behave with mysql.
+   the changes are:
+   1. mysqlSetPathArray will not report a error while translate a string to number;
+   2. these functions will be called by each other; */
+static JsonbValue *
+mysqlSetPath(JsonbIterator **it, Datum *path_elems,
+			 bool *path_nulls, int path_len,
+			 JsonbParseState **st, int level, Jsonb *newval, int op_type);
+static void
+mysqlSetPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+				  int path_len, JsonbParseState **st, int level,
+				  Jsonb *newval, uint32 nelems, int op_type);
+static void
+mysqlSetPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+				   int path_len, JsonbParseState **st, int level,
+				   Jsonb *newval, uint32 npairs, int op_type);
 
 #define PARAMETER_ERROR(detail) \
 	ereport(ERROR, \
@@ -112,20 +169,28 @@ myfce_group_concat_transfn(PG_FUNCTION_ARGS)
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	/* Append the value unless null. */
+	/* 除非null值，否则追加值到字符串末尾*/
 	if (!PG_ARGISNULL(2))
 	{
 		/* On the first time through, we ignore the delimiter. */
+		/* 第一次，我们忽略分隔符。*/
 		if (state == NULL)
 			state = makeStringAggState(fcinfo);
 		else if (!PG_ARGISNULL(1))
-			appendStringInfoText(state, PG_GETARG_TEXT_PP(1));	/* delimiter */
+		{
+			/* delimiter */
+			/* 追加分隔符*/
+			appendStringInfoText(state, PG_GETARG_TEXT_PP(1));
+		}
 
-		appendStringInfoText(state, PG_GETARG_TEXT_PP(2));	/* value */
+		/* 将值追加到末尾 */
+		appendStringInfoText(state, PG_GETARG_TEXT_PP(2));
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
+	 * The transition type for group_concat() is declared to be "internal",
 	 * which is a pass-by-value type the same size as a pointer.
+	 * group_concat() 的转换类型被声明为 “内部”、 这是一种按值传递类型，大小与指针相同。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -140,9 +205,11 @@ myfce_group_concat_transfn_bigint(PG_FUNCTION_ARGS)
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	/* Append the value unless null. */
+	/* 除非null值，否则追加值到字符串末尾*/
 	if (!PG_ARGISNULL(2))
 	{
 		/* On the first time through, we ignore the delimiter. */
+		/* 第一次，我们忽略分隔符。*/
 		if (state == NULL)
 			state = makeStringAggState(fcinfo);
 		else if (!PG_ARGISNULL(1))
@@ -153,8 +220,9 @@ myfce_group_concat_transfn_bigint(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
+	 * The transition type for group_concat() is declared to be "internal",
 	 * which is a pass-by-value type the same size as a pointer.
+	 * group_concat() 的转换类型被声明为 “内部”、 这是一种按值传递类型，大小与指针相同。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -168,9 +236,11 @@ myfce_group_concat_transfn_float8(PG_FUNCTION_ARGS)
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	/* Append the value unless null. */
+	/* 除非null值，否则追加值到字符串末尾*/
 	if (!PG_ARGISNULL(2))
 	{
 		/* On the first time through, we ignore the delimiter. */
+		/* 第一次，我们忽略分隔符。*/
 		if (state == NULL)
 			state = makeStringAggState(fcinfo);
 		else if (!PG_ARGISNULL(1))
@@ -181,8 +251,9 @@ myfce_group_concat_transfn_float8(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
+	 * The transition type for group_concat() is declared to be "internal",
 	 * which is a pass-by-value type the same size as a pointer.
+	 * group_concat() 的转换类型被声明为 “内部”、 这是一种按值传递类型，大小与指针相同。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -196,6 +267,7 @@ myfce_group_concat_transfn_float4(PG_FUNCTION_ARGS)
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	/* Append the value unless null. */
+	/* 除非null值，否则追加值到字符串末尾*/
 	if (!PG_ARGISNULL(2))
 	{
 		/* On the first time through, we ignore the delimiter. */
@@ -209,8 +281,9 @@ myfce_group_concat_transfn_float4(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
+	 * The transition type for group_concat() is declared to be "internal",
 	 * which is a pass-by-value type the same size as a pointer.
+	 * group_concat() 的转换类型被声明为 “内部”、 这是一种按值传递类型，大小与指针相同。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -224,6 +297,7 @@ myfce_group_concat_transfn_numeric(PG_FUNCTION_ARGS)
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
 
 	/* Append the value unless null. */
+	/* 除非null值，否则追加值到字符串末尾*/
 	if (!PG_ARGISNULL(2))
 	{
 		/* On the first time through, we ignore the delimiter. */
@@ -237,8 +311,9 @@ myfce_group_concat_transfn_numeric(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * The transition type for string_agg() is declared to be "internal",
+	 * The transition type for group_concat() is declared to be "internal",
 	 * which is a pass-by-value type the same size as a pointer.
+	 * group_concat() 的转换类型被声明为 “内部”、 这是一种按值传递类型，大小与指针相同。
 	 */
 	PG_RETURN_POINTER(state);
 }
@@ -250,6 +325,7 @@ myfce_group_concat_finalfn(PG_FUNCTION_ARGS)
 	StringInfo	state;
 
 	/* cannot be called directly because of internal-type argument */
+	/* 不能直接调用，因为内部类型参数*/
 	Assert(AggCheckCallContext(fcinfo, NULL));
 
 	state = PG_ARGISNULL(0) ? NULL : (StringInfo) PG_GETARG_POINTER(0);
@@ -324,6 +400,7 @@ myfce_find_in_set(PG_FUNCTION_ARGS)
 	appendStringInfoString(&arg1,",");
 
 	//Returns 0 if arg0 contains a comma,
+	/* 如果 arg0 包含逗号，则返回 0、*/
 	for ( i=1;i<arg0.len-1;i++)
 	{
 		if(arg0.data[i] == ',')
@@ -333,12 +410,14 @@ myfce_find_in_set(PG_FUNCTION_ARGS)
 	}
 
 	// find  sub string  of ",arg1,"
+	/* 查找“,arg1, ”的子串*/
 	ret = strstr(arg1.data, arg0.data);
 	if(!ret)
 	{
 		PG_RETURN_INT32(0);
 	}
 	//caculate count of ','
+	/* 计算','的数量*/
 	for(int i=0;i<= ret - arg1.data;i++)
 	{
 		if(arg1.data[i]  == ',')
@@ -804,6 +883,7 @@ mysql_substr(Datum str, int pos, int len)
 	}
 
 	/*If pos < 0, check left most first*/
+	/* 如果 pos < 0，则先检查最左边*/
 	if (pos < 0)
 	{
 		text   *t;
@@ -814,7 +894,9 @@ mysql_substr(Datum str, int pos, int len)
 		pos = n + pos + 1;
 		if (pos <= 0)
 			return cstring_to_text("");
-		str = PointerGetDatum(t);/* save detoasted text */
+		/* save detoasted text */
+		/* 保存已解密文本*/
+		str = PointerGetDatum(t);
 	}
 
 	if (len < 0)
@@ -843,8 +925,10 @@ mysql_substr3(PG_FUNCTION_ARGS)
 		PG_RETURN_NULL();
 
 	len = PG_GETARG_INT32(2);
+	/*a len less than 1 should always return empty string*/
+	/* len 小于 1 时应始终返回空字符串*/
 	if (len < 1)
-		return DatumGetTextP(cstring_to_text(""));
+		PG_RETURN_TEXT_P(cstring_to_text(""));
 	PG_RETURN_TEXT_P(mysql_substr(PG_GETARG_DATUM(0), PG_GETARG_INT32(1), len));
 }
 
@@ -862,3 +946,977 @@ myfce_sysdate_1(PG_FUNCTION_ARGS)
 	return TimestampGetDatum(GetMysqlSysdate(PG_GETARG_INT32(0)));
 }
 */
+
+//LightDB add on 2023/05/22 for JSON API
+
+Datum
+myfce_json_array(PG_FUNCTION_ARGS)
+{
+	return jsonb_build_array(fcinfo);
+}
+
+Datum
+myfce_json_object(PG_FUNCTION_ARGS)
+{
+	return jsonb_build_object(fcinfo);
+}
+
+Datum
+myfce_json_extract(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *jb = PG_GETARG_JSONB_P(0);
+	JsonPath   *jp = PG_GETARG_JSONPATH_P(1);
+	JsonValueList found = {0};
+	Jsonb	   *vars = DatumGetJsonbP(jsonb_from_cstring("{}", 2));
+	int		len = 0;
+
+	(void) executeJsonPath(jp, vars, jb, false, &found, false);
+
+	len = JsonValueListLength(&found);
+	/* if len = 0, return NULL instead of empty json array '[]' 
+	 * if len = 1,  return single json value
+	 * else , return array
+	 *
+	 * 如果len等于0 ，返回 NULL，而不是空 json 数组"[]
+	 * 如果len等于1 ，返回单值
+	 * 否则，返回数组
+	*/
+	if (len == 0)
+	{
+		PG_RETURN_NULL();
+	}
+	else if (len == 1 && !found.range) 
+	{
+		PG_RETURN_JSONB_P(JsonbValueToJsonb(JsonValueListHead(&found)));
+	}
+
+	PG_RETURN_JSONB_P(JsonbValueToJsonb(wrapItemsInArray(&found)));
+}
+
+Datum
+myfce_json_contains_path(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *jb = PG_GETARG_JSONB_P(0);
+	char *mode = text_to_cstring(PG_GETARG_TEXT_PP(1));
+	ArrayType *jps = PG_GETARG_ARRAYTYPE_P(2);
+	int		nelems = ArrayGetNItems(ARR_NDIM(jps), ARR_DIMS(jps));
+	Jsonb	 *vars = DatumGetJsonbP(jsonb_from_cstring("{}", 2));
+	bool oneNotAll = false;
+	int i;
+
+	Datum *datumArray = NULL;
+	bool *datumArrayNulls = NULL;
+	int datumArrayLength = 0;
+	bool typeByVal = false;
+	char typeAlign = 0;
+	int16 typeLength = 0;
+	Oid typeId = ARR_ELEMTYPE(jps);
+
+	/* check mode */
+	/* 模式校验*/
+	if ( strlen(mode) == 3 &&
+		 ( strcasecmp(mode, "all") == 0 || strcasecmp(mode, "one") == 0 ) )
+	{
+		oneNotAll = (strcasecmp(mode, "all") == 0) ? false : true; 
+	}
+	else
+	{
+		elog(ERROR, "The oneOrAll argument to json_contains_path may take these values: 'one' or 'all'.");
+	}
+
+	/* convert to datum array */
+	/* 转换为值数组*/
+	get_typlenbyvalalign(typeId, &typeLength, &typeByVal, &typeAlign);
+	deconstruct_array(jps, typeId, typeLength, typeByVal, typeAlign,
+					  &datumArray, &datumArrayNulls, &datumArrayLength);
+
+	/* check paths */
+	/* 检查路径*/
+	if (oneNotAll)
+	{
+		for (i = 0; i < nelems; i++)
+		{
+			if (datumArray[i] != 0)
+			{
+				JsonPath *jp = DatumGetJsonPathP(datumArray[i]);
+				if (executeJsonPath(jp, vars, jb, false, NULL, false) == jperOk)
+				{
+					PG_RETURN_BOOL(true);
+				}
+			}
+		}
+		PG_RETURN_BOOL(false);
+	}
+	else
+	{
+		for (i = 0; i < nelems; i++)
+		{
+			if (datumArray[i] != 0)
+			{
+				JsonPath *jp = DatumGetJsonPathP(datumArray[i]);
+				if (executeJsonPath(jp, vars, jb, false, NULL, false) != jperOk)
+				{
+					PG_RETURN_BOOL(false);
+				}
+			}
+			else
+			{
+				PG_RETURN_BOOL(false);
+			}
+		}
+		PG_RETURN_BOOL(true);
+	}
+}
+
+static void
+mysqlSetPathObject(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+			  int path_len, JsonbParseState **st, int level,
+			  Jsonb *newval, uint32 npairs, int op_type)
+{
+	JsonbValue	v;
+	int			i;
+	JsonbValue	k;
+	bool		done = false;
+
+	if (level >= path_len || path_nulls[level])
+		done = true;
+
+	/* empty object is a special case for create */
+	if ((npairs == 0) && (op_type & JB_PATH_CREATE_OR_INSERT) &&
+		(level == path_len - 1))
+	{
+		JsonbValue	newkey;
+
+		newkey.type = jbvString;
+		newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[level]);
+		newkey.val.string.val = VARDATA_ANY(path_elems[level]);
+
+		(void) pushJsonbValue(st, WJB_KEY, &newkey);
+		addJsonbToParseState(st, newval);
+	}
+
+	for (i = 0; i < npairs; i++)
+	{
+		JsonbIteratorToken r = JsonbIteratorNext(it, &k, true);
+
+		Assert(r == WJB_KEY);
+
+		if (!done &&
+			k.val.string.len == VARSIZE_ANY_EXHDR(path_elems[level]) &&
+			memcmp(k.val.string.val, VARDATA_ANY(path_elems[level]),
+				   k.val.string.len) == 0)
+		{
+			if (level == path_len - 1)
+			{
+				/*
+				 * called from jsonb_insert(), it forbids redefining an
+				 * existing value
+				 * 调用 jsonb_insert()，它禁止重新定义现有值
+				 */
+				if (op_type & (JB_PATH_INSERT_BEFORE | JB_PATH_INSERT_AFTER))
+					ereport(ERROR,
+							(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+							 errmsg("cannot replace existing key"),
+							 errhint("Try using the function jsonb_set "
+									 "to replace key value.")));
+				/* skip value */
+				/* 跳过值 */
+				r = JsonbIteratorNext(it, &v, true);
+				if (!(op_type & JB_PATH_DELETE))
+				{
+					(void) pushJsonbValue(st, WJB_KEY, &k);
+					addJsonbToParseState(st, newval);
+				}
+				done = true;
+			}
+			else
+			{
+				(void) pushJsonbValue(st, r, &k);
+				mysqlSetPath(it, path_elems, path_nulls, path_len,
+						st, level + 1, newval, op_type);
+			}
+		}
+		else
+		{
+			if ((op_type & JB_PATH_CREATE_OR_INSERT) && !done &&
+				level == path_len - 1 && i == npairs - 1)
+			{
+				JsonbValue	newkey;
+
+				newkey.type = jbvString;
+				newkey.val.string.len = VARSIZE_ANY_EXHDR(path_elems[level]);
+				newkey.val.string.val = VARDATA_ANY(path_elems[level]);
+
+				(void) pushJsonbValue(st, WJB_KEY, &newkey);
+				addJsonbToParseState(st, newval);
+			}
+
+			(void) pushJsonbValue(st, r, &k);
+			r = JsonbIteratorNext(it, &v, false);
+			(void) pushJsonbValue(st, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
+			if (r == WJB_BEGIN_ARRAY || r == WJB_BEGIN_OBJECT)
+			{
+				int			walking_level = 1;
+
+				while (walking_level != 0)
+				{
+					r = JsonbIteratorNext(it, &v, false);
+
+					if (r == WJB_BEGIN_ARRAY || r == WJB_BEGIN_OBJECT)
+						++walking_level;
+					if (r == WJB_END_ARRAY || r == WJB_END_OBJECT)
+						--walking_level;
+
+					(void) pushJsonbValue(st, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
+				}
+			}
+		}
+	}
+}
+
+static void
+mysqlSetPathArray(JsonbIterator **it, Datum *path_elems, bool *path_nulls,
+			 int path_len, JsonbParseState **st, int level,
+			 Jsonb *newval, uint32 nelems, int op_type)
+{
+	JsonbValue	v;
+	int			idx,
+				i;
+	bool		done = false;
+
+	/* pick correct index */
+	/* 选择正确的索引*/
+	if (level < path_len && !path_nulls[level])
+	{
+		char	   *c = TextDatumGetCString(path_elems[level]);
+		long		lindex;
+		char	   *badp;
+
+		errno = 0;
+		lindex = strtol(c, &badp, 10);
+		if (errno != 0 || badp == c || *badp != '\0' || lindex > INT_MAX ||
+			lindex < INT_MIN)
+		{
+			/* don't report a error, just stop recursion */
+			/* 不报错，只停止递归*/
+			lindex = -1;
+			level = path_len;
+		}
+		idx = lindex;
+	}
+	else
+		idx = nelems;
+
+	if (idx < 0)
+	{
+		if (-idx > nelems)
+			idx = INT_MIN;
+		else
+			idx = nelems + idx;
+	}
+
+	if (idx > 0 && idx > nelems)
+		idx = nelems;
+
+	/*
+	 * if we're creating, and idx == INT_MIN, we prepend the new value to the
+	 * array also if the array is empty - in which case we don't really care
+	 * what the idx value is
+	 * 
+	 * 如果我们正在创建数组，并且 idx == INT_MIN，我们会将新值预置到数组中，
+	 * 如果数组是空的，我们也会将新值预置到数组中。idx值是多少
+	 */
+
+	if ((idx == INT_MIN || nelems == 0) && (level == path_len - 1) &&
+		(op_type & JB_PATH_CREATE_OR_INSERT))
+	{
+		LtAssert(newval != NULL);
+		addJsonbToParseState(st, newval);
+		done = true;
+	}
+
+	/* iterate over the array elements */
+	/* 遍历数组元素*/
+	for (i = 0; i < nelems; i++)
+	{
+		JsonbIteratorToken r;
+
+		if (i == idx && level < path_len)
+		{
+			if (level == path_len - 1)
+			{
+				r = JsonbIteratorNext(it, &v, true);	/* skip */
+
+				if (op_type & (JB_PATH_INSERT_BEFORE | JB_PATH_CREATE))
+					addJsonbToParseState(st, newval);
+
+				/*
+				 * We should keep current value only in case of
+				 * JB_PATH_INSERT_BEFORE or JB_PATH_INSERT_AFTER because
+				 * otherwise it should be deleted or replaced
+				 * 
+				 * 只有在 JB_PATH_INSERT_BEFORE 或 JB_PATH_INSERT_AFTER 的情况下，
+				 * 我们才应保留当前值，因为否则应删除或替换
+				 */
+				if (op_type & (JB_PATH_INSERT_AFTER | JB_PATH_INSERT_BEFORE))
+					(void) pushJsonbValue(st, r, &v);
+
+				if (op_type & (JB_PATH_INSERT_AFTER | JB_PATH_REPLACE))
+					addJsonbToParseState(st, newval);
+
+				done = true;
+			}
+			else
+				(void) mysqlSetPath(it, path_elems, path_nulls, path_len,
+								st, level + 1, newval, op_type);
+		}
+		else
+		{
+			r = JsonbIteratorNext(it, &v, false);
+
+			(void) pushJsonbValue(st, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
+
+			if (r == WJB_BEGIN_ARRAY || r == WJB_BEGIN_OBJECT)
+			{
+				int			walking_level = 1;
+
+				while (walking_level != 0)
+				{
+					r = JsonbIteratorNext(it, &v, false);
+
+					if (r == WJB_BEGIN_ARRAY || r == WJB_BEGIN_OBJECT)
+						++walking_level;
+					if (r == WJB_END_ARRAY || r == WJB_END_OBJECT)
+						--walking_level;
+
+					(void) pushJsonbValue(st, r, r < WJB_BEGIN_ARRAY ? &v : NULL);
+				}
+			}
+
+			if ((op_type & JB_PATH_CREATE_OR_INSERT) && !done &&
+				level == path_len - 1 && i == nelems - 1)
+			{
+				addJsonbToParseState(st, newval);
+			}
+		}
+	}
+}
+
+static JsonbValue *
+mysqlSetPath(JsonbIterator **it, Datum *path_elems,
+		bool *path_nulls, int path_len,
+		 JsonbParseState **st, int level, Jsonb *newval, int op_type)
+{
+	JsonbValue	v;
+	JsonbIteratorToken r;
+	JsonbValue *res;
+
+	check_stack_depth();
+
+	if (path_nulls[level])
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("path element at position %d is null",
+						level + 1)));
+
+	r = JsonbIteratorNext(it, &v, false);
+
+	switch (r)
+	{
+		case WJB_BEGIN_ARRAY:
+			(void) pushJsonbValue(st, r, NULL);
+			mysqlSetPathArray(it, path_elems, path_nulls, path_len, st, level,
+						 newval, v.val.array.nElems, op_type);
+			r = JsonbIteratorNext(it, &v, false);
+			Assert(r == WJB_END_ARRAY);
+			res = pushJsonbValue(st, r, NULL);
+			break;
+		case WJB_BEGIN_OBJECT:
+			(void) pushJsonbValue(st, r, NULL);
+			mysqlSetPathObject(it, path_elems, path_nulls, path_len, st, level,
+						  newval, v.val.object.nPairs, op_type);
+			r = JsonbIteratorNext(it, &v, true);
+			Assert(r == WJB_END_OBJECT);
+			res = pushJsonbValue(st, r, NULL);
+			break;
+		case WJB_ELEM:
+		case WJB_VALUE:
+			res = pushJsonbValue(st, r, &v);
+			break;
+		default:
+			elog(ERROR, "unrecognized iterator result: %d", (int) r);
+			res = NULL;			/* keep compiler quiet */
+			break;
+	}
+
+	return res;
+}
+
+//LightDB add on 2023/09/11 for JSON API (decode jsonpath to string)
+static void
+JsonpathItemString(StringInfo buf, JsonPathItem *v)
+{
+	JsonPathItem elem;
+
+	check_stack_depth();
+	CHECK_FOR_INTERRUPTS();
+
+	switch (v->type)
+	{
+	case jpiRoot:
+		appendStringInfoChar(buf, '$');
+		break;
+	case jpiKey:
+		appendStringInfoString(buf, jspGetString(v, NULL));
+		break;
+	case jpiIndexArray:
+		{
+			JsonPathItem from;
+			JsonPathItem to;
+			bool range = jspGetArraySubscript(v, &from, &to, 0);
+			if (range || v->content.array.nelems > 1)
+			{
+				ereport(ERROR, (errcode(ERRCODE_MORE_THAN_ONE_SQL_JSON_ITEM),
+								errmsg("In this situation, path expressions may not contain the * and ** tokens or an array range.")));
+			}
+			JsonpathItemString(buf, &from);
+			break;
+		}
+	case jpiAny:
+	case jpiAnyKey:
+	case jpiAnyArray:
+		ereport(ERROR, (errcode(ERRCODE_MORE_THAN_ONE_SQL_JSON_ITEM),
+						errmsg("In this situation, path expressions may not contain the * and ** tokens or an array range.")));
+		break;
+	case jpiNumeric:
+		{
+			long index;
+			char cbuf[32];
+			Datum result;
+			result = DirectFunctionCall1(numeric_int8, NumericGetDatum(jspGetNumeric(v)));
+			index = DatumGetInt64(result);
+			
+			if (index < 0)
+			{
+				ereport(ERROR, (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+								errmsg("Invalid JSON path expression.")));
+			}
+			snprintf(cbuf, sizeof(cbuf), "%ld", index);
+			appendStringInfoString(buf, cbuf);
+			break;
+		}
+	case jpiLast: /* for '[last]' */
+		appendBinaryStringInfo(buf, "-1", 2);
+		break;
+	case jpiSub: /* for '[last - N]' */
+		{
+			long index;
+			char cbuf[32];
+			Datum result;
+			jspGetLeftArg(v, &elem);
+			if (elem.type != jpiLast)
+			{
+				ereport(ERROR, (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+								errmsg("Invalid JSON path expression.")));
+			}
+			jspGetRightArg(v, &elem);
+			if (elem.type != jpiNumeric)
+			{
+				ereport(ERROR, (errcode(ERRCODE_NON_NUMERIC_SQL_JSON_ITEM),
+								errmsg("Invalid JSON path expression.")));
+			}
+			result = DirectFunctionCall1(numeric_int8,
+										 NumericGetDatum(jspGetNumeric(&elem)));
+			index = DatumGetInt64(result);
+
+			/* translate '[last - N]' to '-(N+1)' */
+			index++;
+			snprintf(cbuf, sizeof(cbuf), "-%ld", index);
+			appendStringInfoString(buf, cbuf);
+			break;
+		}
+	default:
+		ereport(ERROR, (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						errmsg("Invalid JSON path expression.")));
+	}
+}
+
+// LightDB add on 2023/09/11 for JSON API (convert json path to pg json path array)
+// These function should only be used by insert, replace and set
+static void
+transformJsonpath(JsonPath *jp, Datum **path_elems, bool **path_nulls, int *path_len, bool chroot)
+{
+	JsonPathItem jsp;
+	JsonPathItem* p_jsp = &jsp;
+	JsonPathItem next;
+	StringInfoData buf;
+	int i;
+
+	jspInit(&jsp, jp);
+
+	/* get first element */
+	/*  取第一元素*/
+	initStringInfo(&buf);
+	JsonpathItemString(&buf, p_jsp);
+
+	/* get the length of jsonpath */
+	/* 获取 jsonpath 的长度*/
+	*path_len = 1;
+	while ( jspGetNext(p_jsp, &next) )
+	{
+		p_jsp = &next;
+		(*path_len)++;
+	}
+
+	/* modify '$' is not permitted */
+	/* 获取 jsonpath 的长度*/
+	if (!chroot && *path_len == 1 && strcmp(buf.data, "$") == 0)
+	{
+		ereport(ERROR, (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						errmsg("The path expression '$' is not allowed in this context.")));
+	}
+
+	/* ignore first element jpiRoot '$' */
+	/* 忽略第一个元素 jpiRoot '$'*/
+	p_jsp = &jsp;
+	jspGetNext(p_jsp, &next);
+	p_jsp = &next;
+	(*path_len)--;
+
+	/* these memory units will be freed automatically */
+	/* 这些内存单元将被自动释放*/
+	*path_elems = (Datum *) palloc(*path_len * sizeof(Datum));
+	*path_nulls = (bool *) palloc0(*path_len * sizeof(bool));
+
+	for (i = 0; i < *path_len; i++)
+	{
+		initStringInfo(&buf);
+		JsonpathItemString(&buf, p_jsp);
+
+		jspGetNext(p_jsp, &next);
+		p_jsp = &next;
+
+		(*path_elems)[i] = CStringGetTextDatum(buf.data);
+		(*path_nulls)[i] = false;
+	}
+}
+
+Datum
+myfce_json_remove(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *in = PG_GETARG_JSONB_P(0);
+	JsonPath   *jp = PG_GETARG_JSONPATH_P(1);
+	JsonbValue *res = NULL;
+	Datum	   *path_elems;
+	bool	   *path_nulls;
+	int	 path_len;
+	JsonbIterator *it;
+	JsonbParseState *st = NULL;
+	JsonValueList found = {0};
+	int len = 0;
+
+	if (JB_ROOT_IS_SCALAR(in))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot delete path in scalar")));
+	}
+
+	transformJsonpath(jp, &path_elems, &path_nulls, &path_len, false);
+
+	/* for remove without ambiguity
+	 用于消除没有歧义的
+	 *$.key[N] => {key, N} , $.key.N => {key, N}
+	 */
+	(void) executeJsonPath(jp, NULL, in, true, &found, false);
+	len = JsonValueListLength(&found);
+	if (len == 0)
+	{
+		PG_RETURN_JSONB_P(in);
+	}
+
+	it = JsonbIteratorInit(&in->root);
+
+	res = mysqlSetPath(&it, path_elems, path_nulls, path_len, &st,
+				   0, NULL, JB_PATH_DELETE);
+
+	LtAssert(res != NULL);
+
+	PG_RETURN_JSONB_P(JsonbValueToJsonb(res));
+}
+
+Datum
+myfce_json_insert(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *in = NULL;
+	JsonPath   *jp = NULL;
+	Datum	newelem;
+	Oid	newelem_type;
+	JsonbInState result;
+	JsonbTypeCategory tcategory;
+	Oid			outfuncoid;
+	Jsonb	   *newval = NULL;
+	JsonbValue *res = NULL;
+	Datum	   *path_elems;
+	bool	   *path_nulls;
+	int	 path_len = -1;
+	JsonbIterator *it;
+	JsonbParseState *st = NULL;
+	JsonValueList found = {0};
+	bool is_null = false;
+	int len = 0;
+
+	/* mysql.json_insert is defined without 'STRICT' for supporting third null
+	   argument, so we need follow check */
+	if ( PG_ARGISNULL(0) || PG_ARGISNULL(1) )
+	{
+		PG_RETURN_NULL();
+	}
+	if (PG_ARGISNULL(2))
+	{
+		is_null = true;
+	}
+
+	in = PG_GETARG_JSONB_P(0);
+	jp = PG_GETARG_JSONPATH_P(1);
+
+	/* covert 'Datum' argument to new value which's type is 'Jsonb' */
+	newelem = PG_GETARG_DATUM(2);
+
+	newelem_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
+	if (newelem_type == InvalidOid)
+	{
+		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						errmsg("could not determine input data type")));
+	}
+
+	jsonb_categorize_type(newelem_type, &tcategory, &outfuncoid);
+	memset(&result, 0, sizeof(JsonbInState));
+	datum_to_jsonb(newelem, is_null, &result, tcategory, outfuncoid, false);
+
+	newval = JsonbValueToJsonb(result.res);
+	transformJsonpath(jp, &path_elems, &path_nulls, &path_len, true);
+
+	/* return input itself while path is exist */
+	(void) executeJsonPath(jp, NULL, in, true, &found, false);
+	len = JsonValueListLength(&found);
+	if (len > 0 || path_len == 0 || JB_ROOT_IS_SCALAR(in))
+	{
+		PG_RETURN_JSONB_P(in);
+	}
+
+	it = JsonbIteratorInit(&in->root);
+
+	res = mysqlSetPath(&it, path_elems, path_nulls, path_len, &st, 0, newval,
+				   JB_PATH_INSERT_AFTER);
+
+	LtAssert(res != NULL);
+
+	PG_RETURN_JSONB_P(JsonbValueToJsonb(res));
+}
+
+Datum
+myfce_json_replace(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *in = NULL;
+	JsonPath   *jp = NULL;
+	Datum	newelem;
+	Oid	newelem_type;
+	JsonbInState result;
+	JsonbTypeCategory tcategory;
+	Oid			outfuncoid;
+	Jsonb	   *newval = NULL;
+	JsonbValue *res = NULL;
+	Datum	   *path_elems;
+	bool	   *path_nulls;
+	int	 path_len = -1;
+	JsonbIterator *it;
+	JsonbParseState *st = NULL;
+	JsonValueList found = {0};
+	bool is_null = false;
+	int len = 0;
+
+	/* mysql.json_insert is defined without 'STRICT' for supporting third null
+	   argument, so we need follow check */
+	if ( PG_ARGISNULL(0) || PG_ARGISNULL(1) )
+	{
+		PG_RETURN_NULL();
+	}
+	if (PG_ARGISNULL(2))
+	{
+		is_null = true;
+	}
+
+	in = PG_GETARG_JSONB_P(0);
+	jp = PG_GETARG_JSONPATH_P(1);
+
+	/* covert 'Datum' argument to new value which's type is 'Jsonb' */
+	newelem = PG_GETARG_DATUM(2);
+
+	newelem_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
+	if (newelem_type == InvalidOid)
+	{
+		ereport(ERROR, (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						errmsg("could not determine input data type")));
+	}
+
+	jsonb_categorize_type(newelem_type, &tcategory, &outfuncoid);
+	memset(&result, 0, sizeof(JsonbInState));
+	datum_to_jsonb(newelem, is_null, &result, tcategory, outfuncoid, false);
+
+	newval = JsonbValueToJsonb(result.res);
+
+	/* return input itself while path is exist */
+	(void) executeJsonPath(jp, NULL, in, true, &found, false);
+	len = JsonValueListLength(&found);
+	transformJsonpath(jp, &path_elems, &path_nulls, &path_len, true);
+	if (len > 0)
+	{
+		if (path_len == 0) /* replace $ is allowed in mysql */
+		{
+			PG_RETURN_JSONB_P(newval);
+		}
+
+		it = JsonbIteratorInit(&in->root);
+
+		res = mysqlSetPath(&it, path_elems, path_nulls, path_len, &st, 0, newval,
+					   JB_PATH_REPLACE);
+
+		LtAssert(res != NULL);
+
+		PG_RETURN_JSONB_P(JsonbValueToJsonb(res));
+	}
+	PG_RETURN_JSONB_P(in);
+}
+
+Datum
+myfce_json_set(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *in = NULL;
+	JsonPath   *jp = NULL;
+	JsonValueList found = {0};
+	int len = 0;
+
+	if ( PG_ARGISNULL(0) || PG_ARGISNULL(1) )
+	{
+		PG_RETURN_NULL();
+	}
+
+	in = PG_GETARG_JSONB_P(0);
+	jp = PG_GETARG_JSONPATH_P(1);
+
+	(void) executeJsonPath(jp, NULL, in, true, &found, false);
+	len = JsonValueListLength(&found);
+	if (len > 0)
+	{
+		return myfce_json_replace(fcinfo);
+	}
+	else
+	{
+		return myfce_json_insert(fcinfo);
+	}
+}
+
+static
+bool internal_cmp_text_bool(const text *text_value, bool bool_value)
+{
+	const char *text_str = text_to_cstring(text_value);
+	const int len = strlen(text_str);
+	const char *bool_str = (bool_value ? "1": "0");
+	if (len != 1)
+		PG_RETURN_BOOL(false); 
+
+	PG_RETURN_BOOL(!strncmp(text_str, bool_str, len));
+}
+
+Datum
+text_bool_equal(PG_FUNCTION_ARGS)
+{
+	const	text *text_value = PG_GETARG_TEXT_P(0);
+	bool	bool_value = PG_GETARG_BOOL(1);
+
+	PG_RETURN_BOOL(internal_cmp_text_bool(text_value, bool_value));
+}
+
+Datum
+text_bool_not_equal(PG_FUNCTION_ARGS)
+{
+	const	text *text_value = PG_GETARG_TEXT_P(0);
+	bool	bool_value = PG_GETARG_BOOL(1);
+
+	PG_RETURN_BOOL(!internal_cmp_text_bool(text_value, bool_value));
+}
+
+/* LightDB add at 2023/12/04 for 202310213118, quarter function */
+Datum
+quarter_ts(PG_FUNCTION_ARGS)
+{
+	Timestamp	dateTimestamp  = PG_GETARG_TIMESTAMP(0);
+	struct 	pg_tm	tm;
+	fsec_t	fsec;
+										
+	timestamp2tm(dateTimestamp, NULL, &tm, &fsec, NULL, NULL);
+							
+	PG_RETURN_INT32((tm.tm_mon + 2) / 3);
+}
+
+
+
+/* LightDB add at 2023/12/04 for 202310213117, support last_day */
+Datum
+my_last_day(PG_FUNCTION_ARGS)
+{
+	DateADT day = PG_GETARG_DATEADT(0);
+	DateADT result;
+	int y, m, d;
+	j2date(day + POSTGRES_EPOCH_JDATE, &y, &m, &d);
+	result = date2j(y, m+1, 1) - POSTGRES_EPOCH_JDATE;
+
+	PG_RETURN_DATEADT(result - 1);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Convert the date type to the int8 type
+ */
+static int64
+LtDateFormatToInt8(DateADT dateVal)
+{
+	struct 		pg_tm tt, *tm = &tt;
+	char		buf[MAXDATELEN + 1];
+	int64		date;
+	if (DATE_NOT_FINITE(dateVal))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATETIME_VALUE_OUT_OF_RANGE),
+					errmsg("date out of range")));
+	}
+	j2date(dateVal + POSTGRES_EPOCH_JDATE,
+		   &(tm->tm_year), &(tm->tm_mon), &(tm->tm_mday));
+	snprintf(buf, sizeof(buf), "%04d%02d%02d", tm->tm_year, tm->tm_mon, tm->tm_mday);
+	date = atoi(buf);
+	return date;
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Date plus number
+ */
+Datum
+lt_myfce_date_add_days(PG_FUNCTION_ARGS)
+{
+	DateADT		dateVal = PG_GETARG_DATEADT(0);
+	int64		days = PG_GETARG_INT64(1);
+	int64		intdate, result;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	result = DatumGetInt64(DirectFunctionCall2(int8pl, Int64GetDatum(intdate), Int64GetDatum(days)));
+	PG_RETURN_INT64(result);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Date minus number
+ */
+Datum
+lt_myfce_date_sub_days(PG_FUNCTION_ARGS)
+{
+	DateADT		dateVal = PG_GETARG_DATEADT(0);
+	int64		days = PG_GETARG_INT64(1);
+	int64		intdate, result;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	result = DatumGetInt64(DirectFunctionCall2(int8mi, Int64GetDatum(intdate), Int64GetDatum(days)));
+	PG_RETURN_INT64(result);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Number minus date
+ */
+Datum
+lt_myfce_days_sub_date(PG_FUNCTION_ARGS)
+{
+	int64		days = PG_GETARG_INT64(0);
+	DateADT		dateVal = PG_GETARG_DATEADT(1);
+
+	int64		intdate, result;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	result = DatumGetInt64(DirectFunctionCall2(int8mi, Int64GetDatum(days), Int64GetDatum(intdate)));
+	PG_RETURN_INT64(result);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Date plus numeric
+ */
+Datum
+lt_myfce_date_add_days_numeric(PG_FUNCTION_ARGS)
+{
+	DateADT		dateVal = PG_GETARG_DATEADT(0);
+	Datum		days = PG_GETARG_DATUM(1);
+	Datum		date, result;
+	int64		intdate;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	date = DirectFunctionCall1(int8_numeric, Int64GetDatum(intdate));
+
+	result = DirectFunctionCall2(numeric_add, date, days);
+
+	PG_RETURN_DATUM(result);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Date minus numeric
+ */
+Datum
+lt_myfce_date_sub_days_numeric(PG_FUNCTION_ARGS)
+{
+	DateADT		dateVal = PG_GETARG_DATEADT(0);
+	Datum		days = PG_GETARG_DATUM(1);
+	Datum		date, result;
+	int64		intdate;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	date = DirectFunctionCall1(int8_numeric, Int64GetDatum(intdate));
+
+	result = DirectFunctionCall2(numeric_sub, date, days);
+
+	PG_RETURN_DATUM(result);
+}
+
+/*
+ * LightDB add for 202311014178
+ *
+ * Numeric minus date
+ */
+Datum
+lt_myfce_days_sub_date_numeric(PG_FUNCTION_ARGS)
+{
+	Datum		days = PG_GETARG_DATUM(0);
+	DateADT		dateVal = PG_GETARG_DATEADT(1);
+	Datum		date, result;
+	int64		intdate;
+
+	intdate = LtDateFormatToInt8(dateVal);
+
+	date = DirectFunctionCall1(int8_numeric, Int64GetDatum(intdate));
+
+	result = DirectFunctionCall2(numeric_sub, days, date);
+
+	PG_RETURN_DATUM(result);
+}
+
